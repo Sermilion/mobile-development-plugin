@@ -97,7 +97,7 @@ Keep the mobile triggers focused on what the baseline review does not cover:
 
 ### Step 3: Run KMP specialist reviews
 
-Run all selected KMP specialist review passes in parallel when the runtime supports delegation and current policy allows it. Use the runtime's available delegation mechanism rather than naming a specific tool. If delegation is unavailable, perform the same KMP specialist review passes inline and say so in the summary.
+Run all selected KMP specialist review passes in parallel through the runtime's native subagents or equivalent native delegation mechanism when it is supported and permitted. If native delegation is unavailable or disallowed, perform the same KMP specialist review passes inline and say so in the summary. Do not hardcode agent-specific delegation tool names in the skill text.
 
 Each KMP specialist review pass uses:
 - the detected project type

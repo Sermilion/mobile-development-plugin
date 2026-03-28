@@ -23,9 +23,9 @@ Runtime-facing skills consume this contract through sibling supporting files suc
 
 ## Delegation Portability Contract
 
-- Use the runtime's available delegation mechanism for parallel specialist review passes when delegation is supported and permitted
+- When the runtime provides native subagents or an equivalent native delegation mechanism, use it for parallel specialist review passes. Only fall back to inline review when delegation is unavailable or disallowed.
 - Shared installable skills must not hardcode agent-specific delegation tool names such as `task` or `spawn_agent`
-- If delegation is unavailable, perform the same specialist review passes inline and say so in the summary
+- If delegation is unavailable or disallowed, perform the same specialist review passes inline and say so in the summary
 - If a specialist review pass fails or returns no output, note it in the summary and continue with available results
 - When multiple review passes produce overlapping findings, deduplicate by root cause and keep the highest severity/confidence version
 - Prioritize final findings as `Blocker > Major > Minor`, then by blast radius

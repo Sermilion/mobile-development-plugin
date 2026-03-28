@@ -86,7 +86,7 @@ When invoking it from this skill:
 
 ### Step 3: Run backend specialist reviews
 
-Run all selected backend specialist review passes in parallel when the runtime supports delegation and current policy allows it. Use the runtime's available delegation mechanism rather than naming a specific tool. If delegation is unavailable, perform the same backend specialist review passes inline and say so in the summary.
+Run all selected backend specialist review passes in parallel through the runtime's native subagents or equivalent native delegation mechanism when it is supported and permitted. If native delegation is unavailable or disallowed, perform the same backend specialist review passes inline and say so in the summary. Do not hardcode agent-specific delegation tool names in the skill text.
 
 Each backend specialist review pass uses:
 - the detected project type
