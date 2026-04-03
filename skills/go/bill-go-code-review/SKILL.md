@@ -134,6 +134,7 @@ If execution mode is `delegated`:
 ### 1. Specialist Summary
 
 ```text
+Review run ID: <review-run-id>
 Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>
 Signals: goroutines, context propagation, database/sql, changed tests
 Execution mode: inline | delegated

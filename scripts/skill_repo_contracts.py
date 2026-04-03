@@ -42,6 +42,10 @@ PORTABLE_REVIEW_SKILLS = (
   "bill-go-code-review",
 )
 
+REVIEW_RUN_ID_PLACEHOLDER = "Review run ID: <review-run-id>"
+REVIEW_RUN_ID_FORMAT = "rvw-YYYYMMDD-HHMMSS"
+RISK_REGISTER_FINDING_FORMAT = "- [F-001] <Severity> | <Confidence> | <file:line> | <description>"
+
 
 def skills_requiring_supporting_file(file_name: str) -> tuple[str, ...]:
   return tuple(

@@ -11,6 +11,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from skill_repo_contracts import (  # noqa: E402
   PORTABLE_REVIEW_SKILLS,
   REVIEW_DELEGATION_REQUIRED_SECTIONS,
+  REVIEW_RUN_ID_FORMAT,
+  REVIEW_RUN_ID_PLACEHOLDER,
+  RISK_REGISTER_FINDING_FORMAT,
   RUNTIME_SUPPORTING_FILES,
   supporting_file_targets,
   skills_requiring_supporting_file,
@@ -87,8 +90,13 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
     self.assertIn("Supported scope labels are `staged changes`, `unstaged changes`, `working tree`, `commit range`, `PR diff`, and `files`", REVIEW_ORCHESTRATOR_PLAYBOOK)
     self.assertIn("When the caller asks for staged changes, inspect only the staged/index diff", REVIEW_ORCHESTRATOR_PLAYBOOK)
     self.assertIn("Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>", REVIEW_ORCHESTRATOR_PLAYBOOK)
+    self.assertIn(REVIEW_RUN_ID_PLACEHOLDER, REVIEW_ORCHESTRATOR_PLAYBOOK)
+    self.assertIn(REVIEW_RUN_ID_FORMAT, REVIEW_ORCHESTRATOR_PLAYBOOK)
+    self.assertIn("reuse it instead of generating a new one", REVIEW_ORCHESTRATOR_PLAYBOOK)
+    self.assertIn(RISK_REGISTER_FINDING_FORMAT, REVIEW_ORCHESTRATOR_PLAYBOOK)
     self.assertIn("The parent review owns only the delegated workers it launched itself.", REVIEW_DELEGATION_PLAYBOOK)
     self.assertIn("Track delegated workers by the ids returned when they are launched.", REVIEW_DELEGATION_PLAYBOOK)
+    self.assertIn("the current `review_run_id` when one already exists", REVIEW_DELEGATION_PLAYBOOK)
     self.assertIn("Do not use `list_agents` to discover delegated workers during normal review execution.", REVIEW_DELEGATION_PLAYBOOK)
     for section in REVIEW_DELEGATION_REQUIRED_SECTIONS:
       self.assertIn(section, REVIEW_DELEGATION_PLAYBOOK)
@@ -229,7 +237,10 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
       "Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>",
       CODE_REVIEW,
     )
+    self.assertIn(REVIEW_RUN_ID_PLACEHOLDER, CODE_REVIEW)
+    self.assertIn(REVIEW_RUN_ID_FORMAT, CODE_REVIEW)
     self.assertIn("Execution mode: inline | delegated", CODE_REVIEW)
+    self.assertIn("the current `review_run_id` when one already exists", CODE_REVIEW)
     self.assertIn(
       "If the caller asks for staged changes, route and review only the staged diff",
       CODE_REVIEW,
@@ -270,6 +281,7 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
           "Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>",
           skill_text,
         )
+        self.assertIn(REVIEW_RUN_ID_PLACEHOLDER, skill_text)
         self.assertIn("Execution mode: inline | delegated", skill_text)
         self.assertIn("Use `inline` only", skill_text)
         self.assertIn("If execution mode is `delegated`", skill_text)

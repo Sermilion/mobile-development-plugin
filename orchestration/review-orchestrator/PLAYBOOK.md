@@ -52,11 +52,23 @@ Runtime-facing skills consume this contract through sibling supporting files suc
 
 ## Shared Report Structure
 
+Section 1 summary must include `Review run ID: <review-run-id>`.
 Section 1 summary must include `Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>`.
 Section 1 summary must include `Execution mode: inline | delegated`.
+
+Generate one review run id per top-level review using the format `rvw-YYYYMMDD-HHMMSS`. If a parent reviewer already passed a `review_run_id` into a delegated or layered review, reuse it instead of generating a new one. Reuse that same id across the summary, the risk register, and any follow-up feedback workflow for the current review output.
 
 After Section 1 in a stack-specific review skill, use:
 
 - `### 2. Risk Register`
 - `### 3. Action Items (Max 10, prioritized)`
 - `### 4. Verdict`
+
+Every finding in `### 2. Risk Register` must use this machine-readable format:
+
+```text
+- [F-001] <Severity> | <Confidence> | <file:line> | <description>
+```
+
+Finding ids must be unique within the current review run and stable enough for follow-up feedback or fix requests in the same workflow.
+Assign finding ids sequentially in risk-register order using `F-001`, `F-002`, `F-003`, and so on.

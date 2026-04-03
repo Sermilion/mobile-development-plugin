@@ -30,19 +30,16 @@ You interact through a handful of stable base commands. They auto-detect your st
 ```
 /bill-code-review
 
+Review run ID: rvw-20260402-221530
 Detected stack: kotlin
 Routed to: bill-kotlin-code-review
 Execution mode: inline
 Specialist reviews: architecture, platform-correctness, testing
 
-[ARCHITECTURE]
-P0: Shared state mutation not protected by synchronization
-
-[PLATFORM CORRECTNESS]
-P1: ViewModel scope used outside main thread context
-
-[TESTING]
-Minor: Test coverage for error path incomplete
+### 2. Risk Register
+- [F-001] Major | High | app/src/main/java/...:42 | Shared state mutation is not protected by synchronization.
+- [F-002] Major | Medium | app/src/main/java/...:88 | ViewModel scope is used from the wrong thread context.
+- [F-003] Minor | High | app/src/test/...:17 | Error-path coverage is missing for the new branch.
 ```
 
 **Feature implementation** — end-to-end from design doc to PR:
@@ -101,6 +98,46 @@ Base entry points stay stable for users:
 - `/bill-code-review` routes to `bill-agent-config-code-review` | `bill-kotlin-code-review` | `bill-backend-kotlin-code-review` | `bill-kmp-code-review` | `bill-php-code-review` | `bill-go-code-review`
 - `/bill-quality-check` routes to the matching stack-specific quality checker
 - `/bill-feature-implement` orchestrates the full workflow
+
+## Local review telemetry
+
+Skill Bill can now record a first local measurement loop for code-review usefulness.
+
+- each review run should expose a `Review run ID: ...` using `rvw-YYYYMMDD-HHMMSS`
+- each finding in `### 2. Risk Register` should use `- [F-001] Severity | Confidence | file:line | description`
+- feedback stays local-first in SQLite by default
+
+The helper lives in this repo:
+
+```bash
+python3 scripts/review_metrics.py --help
+```
+
+Default database path:
+
+```text
+~/.skill-bill/review-metrics.db
+```
+
+You can override it with `--db` or `SKILL_BILL_REVIEW_DB`.
+
+Typical workflow:
+
+1. Save a review output to a text file.
+2. Import the review so the run and findings are stored locally.
+3. Record explicit user feedback for accepted, dismissed, or fix-requested findings.
+4. Query summary stats for one run or for all imported runs.
+
+Example:
+
+```bash
+python3 scripts/review_metrics.py import-review review.txt
+python3 scripts/review_metrics.py record-feedback --run-id rvw-20260402-001 --event accepted --finding F-001
+python3 scripts/review_metrics.py record-feedback --run-id rvw-20260402-001 --event fix_requested --finding F-001 --finding F-003
+python3 scripts/review_metrics.py stats --run-id rvw-20260402-001 --format json
+```
+
+The first measurement to watch is `actionable_findings / total_findings`, where actionable means the user explicitly accepted the finding or asked to fix it.
 
 ## Supported agents
 

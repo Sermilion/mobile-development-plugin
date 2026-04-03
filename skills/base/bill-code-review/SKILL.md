@@ -84,6 +84,7 @@ For multiple routed stack-specific review skills:
 When routing to another skill, pass along:
 - the exact resolved review scope label
 - the exact review scope
+- the current `review_run_id` when one already exists
 - the changed files or diff source
 - the detected stack and key signals
 - relevant `AGENTS.md` guidance and matching `.agents/skill-overrides.md` sections
@@ -94,10 +95,13 @@ When routing to another skill, pass along:
 
 ## Output Format
 
+Generate one review run id per routed review using the format `rvw-YYYYMMDD-HHMMSS`. Reuse that same id for the entire routed output.
+
 For a single routed skill:
 
 ```text
 Routed to: <skill-name>
+Review run ID: <review-run-id>
 Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>
 Detected stack: <stack>
 Signals: <markers>
@@ -111,6 +115,7 @@ For multiple delegated skills:
 
 ```text
 Routed to: <skill-a>, <skill-b>
+Review run ID: <review-run-id>
 Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>
 Detected stack: Mixed
 Signals: <markers>

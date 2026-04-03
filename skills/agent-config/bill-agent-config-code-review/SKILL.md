@@ -71,6 +71,7 @@ If execution mode is `delegated`, run this same review in delegated execution us
 
 ### 1. Classification & Review Summary
 ```text
+Review run ID: <review-run-id>
 Detected review scope: <staged changes / unstaged changes / working tree / commit range / PR diff / files>
 Detected stack: agent-config
 Signals: SKILL.md, AGENTS.md, install.sh, orchestration/, validator tests
