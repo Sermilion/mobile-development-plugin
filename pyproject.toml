@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "skill-bill"
+version = "0.1.0"
+description = "CLI runtime for Skill Bill telemetry and tooling"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+[project.scripts]
+skill-bill = "skill_bill.cli:main"

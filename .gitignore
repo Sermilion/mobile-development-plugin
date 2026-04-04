@@ -5,3 +5,6 @@
 __pycache__/
 docs/cloudflare-telemetry-proxy/wrangler.toml
 docs/cloudflare-telemetry-proxy/.wrangler/
+*.egg-info/
+dist/
+build/
