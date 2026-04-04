@@ -53,18 +53,30 @@ export default {
       return jsonResponse(400, { error: "Each batch entry must include event, distinct_id, and properties." });
     }
 
-    const upstreamResponse = await fetch(`${normalizeHost(env.POSTHOG_HOST)}/batch/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: env.POSTHOG_API_KEY,
-        batch,
-      }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    let upstreamResponse;
+    try {
+      upstreamResponse = await fetch(`${normalizeHost(env.POSTHOG_HOST)}/batch/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: env.POSTHOG_API_KEY,
+          batch,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!upstreamResponse.ok) {
+      return jsonResponse(502, { error: "Upstream telemetry relay returned an error." });
+    }
 
     const responseText = await upstreamResponse.text();
     return new Response(
-      responseText || JSON.stringify({ ok: upstreamResponse.ok }),
+      responseText || JSON.stringify({ ok: true }),
       {
         status: upstreamResponse.status,
         headers: {

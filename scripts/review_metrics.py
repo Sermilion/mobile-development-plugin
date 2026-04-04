@@ -38,7 +38,6 @@ ACCEPTED_FINDING_OUTCOME_TYPES = (
   "finding_edited",
 )
 REJECTED_FINDING_OUTCOME_TYPES = ("fix_rejected", "false_positive")
-RUN_STATUS_TYPES = ("active", "abandoned")
 LEARNING_SCOPES = ("global", "repo", "skill")
 LEARNING_STATUSES = ("active", "disabled")
 LEARNING_SCOPE_PRECEDENCE = ("skill", "repo", "global")
@@ -356,9 +355,6 @@ def ensure_database(path: Path) -> sqlite3.Connection:
       execution_mode TEXT,
       source_path TEXT,
       raw_text TEXT NOT NULL,
-      review_status TEXT NOT NULL DEFAULT 'active' CHECK (review_status IN ('active', 'abandoned')),
-      status_note TEXT NOT NULL DEFAULT '',
-      status_updated_at TEXT,
       review_finished_at TEXT,
       review_finished_event_emitted_at TEXT,
       imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -423,17 +419,15 @@ def ensure_database(path: Path) -> sqlite3.Connection:
 
     CREATE INDEX IF NOT EXISTS idx_telemetry_outbox_pending
       ON telemetry_outbox(synced_at, id);
+
+    CREATE TABLE IF NOT EXISTS session_learnings (
+      review_session_id TEXT PRIMARY KEY,
+      learnings_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     """
   )
   ensure_column(connection, "review_runs", "review_session_id", "TEXT")
-  ensure_column(
-    connection,
-    "review_runs",
-    "review_status",
-    "TEXT NOT NULL DEFAULT 'active' CHECK (review_status IN ('active', 'abandoned'))",
-  )
-  ensure_column(connection, "review_runs", "status_note", "TEXT NOT NULL DEFAULT ''")
-  ensure_column(connection, "review_runs", "status_updated_at", "TEXT")
   ensure_column(connection, "review_runs", "review_finished_at", "TEXT")
   ensure_column(connection, "review_runs", "review_finished_event_emitted_at", "TEXT")
   ensure_column(connection, "review_runs", "specialist_reviews", "TEXT NOT NULL DEFAULT ''")
@@ -442,12 +436,19 @@ def ensure_database(path: Path) -> sqlite3.Connection:
   return connection
 
 
+SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
 def ensure_column(
   connection: sqlite3.Connection,
   table_name: str,
   column_name: str,
   definition: str,
 ) -> None:
+  if not SAFE_IDENTIFIER_PATTERN.match(table_name):
+    raise ValueError(f"Unsafe table name: '{table_name}'")
+  if not SAFE_IDENTIFIER_PATTERN.match(column_name):
+    raise ValueError(f"Unsafe column name: '{column_name}'")
   columns = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
   if any(str(column["name"]) == column_name for column in columns):
     return
@@ -821,7 +822,7 @@ def mark_telemetry_synced(connection: sqlite3.Connection, event_ids: list[int]) 
     )
 
 
-def mark_telemetry_failed(connection: sqlite3.Connection, event_ids: list[int], error_message: str) -> None:
+def mark_telemetry_failed(connection: sqlite3.Connection, *, event_ids: list[int], error_message: str) -> None:
   if not event_ids:
     return
   placeholders = ", ".join("?" for _ in event_ids)
@@ -1197,11 +1198,46 @@ def clear_review_finished_telemetry_state(
   connection.execute(
     """
     UPDATE review_runs
-    SET review_finished_at = NULL
+    SET review_finished_at = NULL,
+        review_finished_event_emitted_at = NULL
     WHERE review_run_id = ?
     """,
     (review_run_id,),
   )
+
+
+def save_session_learnings(
+  connection: sqlite3.Connection,
+  *,
+  review_session_id: str,
+  learnings_json: str,
+) -> None:
+  connection.execute(
+    """
+    INSERT INTO session_learnings (review_session_id, learnings_json, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(review_session_id) DO UPDATE SET
+      learnings_json = excluded.learnings_json,
+      updated_at = CURRENT_TIMESTAMP
+    """,
+    (review_session_id, learnings_json),
+  )
+
+
+def fetch_session_learnings(
+  connection: sqlite3.Connection,
+  review_session_id: str,
+) -> dict[str, object] | None:
+  row = connection.execute(
+    "SELECT learnings_json FROM session_learnings WHERE review_session_id = ?",
+    (review_session_id,),
+  ).fetchone()
+  if row is None:
+    return None
+  try:
+    return json.loads(str(row[0]))
+  except (json.JSONDecodeError, TypeError):
+    return None
 
 
 def build_review_finished_payload(
@@ -1220,15 +1256,22 @@ def build_review_finished_payload(
     payload.pop(key, None)
   specialist_reviews_raw = str(review_summary["specialist_reviews"] or "")
   specialist_reviews = [s.strip() for s in specialist_reviews_raw.split(",") if s.strip()]
+  session_id = str(review_summary["review_session_id"] or "")
+  learnings_data = fetch_session_learnings(connection, session_id) if session_id else None
   payload.update(
     {
-      "review_session_id": review_summary["review_session_id"],
+      "review_session_id": session_id,
       "routed_skill": review_summary["routed_skill"],
       "review_subskills": specialist_reviews,
       "review_scope": review_summary["detected_scope"],
       "review_platform": review_summary["detected_stack"],
       "execution_mode": review_summary["execution_mode"],
       "review_finished_at": review_summary["review_finished_at"],
+      "applied_learning_count": learnings_data.get("applied_learning_count", 0) if learnings_data else 0,
+      "applied_learning_references": learnings_data.get("applied_learning_references", []) if learnings_data else [],
+      "applied_learnings": learnings_data.get("applied_learnings", "none") if learnings_data else "none",
+      "scope_counts": learnings_data.get("scope_counts", {}) if learnings_data else {},
+      "learnings": learnings_data.get("learnings", []) if learnings_data else [],
     }
   )
   return payload
@@ -1245,9 +1288,6 @@ def update_review_finished_telemetry_state(
   review_summary = fetch_review_summary(connection, review_run_id)
   finding_rows = latest_finding_outcomes(connection, review_run_id=review_run_id)
   summarized_findings = summarize_finding_rows(finding_rows)
-
-  if int(summarized_findings["total_findings"]) == 0:
-    return
 
   if int(summarized_findings["unresolved_findings"]) > 0:
     if review_summary["review_finished_at"] or review_summary["review_finished_event_emitted_at"]:
@@ -1776,7 +1816,7 @@ def sync_telemetry(db_path: Path) -> SyncResult:
         send_proxy_batch(settings, rows)
       except (urllib.error.URLError, OSError, ValueError) as error:
         message = str(error)
-        mark_telemetry_failed(connection, event_ids, message)
+        mark_telemetry_failed(connection, event_ids=event_ids, error_message=message)
         pending_after = pending_telemetry_count(connection)
         return SyncResult(
           status="failed",
@@ -1944,7 +1984,6 @@ def import_review_command(args: argparse.Namespace) -> int:
   finally:
     connection.close()
 
-  auto_sync_telemetry(db_path)
   emit(
     {
       "db_path": str(db_path),
@@ -1958,6 +1997,7 @@ def import_review_command(args: argparse.Namespace) -> int:
     },
     args.format,
   )
+  auto_sync_telemetry(db_path)
   return 0
 
 
@@ -2119,26 +2159,19 @@ def learnings_resolve_command(args: argparse.Namespace) -> int:
         skill_name=args.skill,
       )
       payload_entries = [learning_payload(row) for row in rows]
-      if telemetry_enabled:
-        if not args.review_session_id:
-          raise ValueError(
-            "Telemetry is enabled but --review-session-id was not provided. "
-            "Pass --review-session-id so the resolved-learning event can be grouped with the review session."
-          )
-        telemetry_payload = {
+      if args.review_session_id:
+        learnings_cache = {
           "skill_name": skill_name,
-          "review_session_id": args.review_session_id,
           "applied_learning_count": len(payload_entries),
           "applied_learning_references": [entry["reference"] for entry in payload_entries],
           "applied_learnings": summarize_applied_learnings(payload_entries),
           "scope_counts": scope_counts(payload_entries),
           "learnings": [learning_summary_payload(entry) for entry in payload_entries],
         }
-        enqueue_telemetry_event(
+        save_session_learnings(
           connection,
-          event_name="skillbill_learnings_resolved",
-          payload=telemetry_payload,
-          enabled=True,
+          review_session_id=args.review_session_id,
+          learnings_json=json.dumps(learnings_cache, sort_keys=True),
         )
   finally:
     connection.close()

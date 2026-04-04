@@ -1,6 +1,6 @@
 # Review telemetry
 
-Skill Bill can record a measurement loop for code-review usefulness, but telemetry is now an explicit opt-in runtime path.
+Skill Bill can record a measurement loop for code-review usefulness. Telemetry is enabled by default with an opt-out prompt during install.
 
 - each top-level review session should expose a `Review session ID: ...` using `rvs-YYYYMMDD-HHMMSS`
 - each concrete review output should expose a `Review run ID: ...` using `rvw-YYYYMMDD-HHMMSS`
@@ -103,17 +103,13 @@ This is intentionally not hidden auto-learning. The learnings layer remains insp
 
 ## Telemetry events
 
-The core review telemetry model is:
+The telemetry model emits a single event per review lifecycle:
 
-- one `skillbill_review_finished` event when a review lifecycle becomes fully resolved
+- one `skillbill_review_finished` event when a review lifecycle becomes fully resolved (all findings triaged, or zero findings)
 
-The terminal payload includes the final run-level totals, the latest per-finding outcome rollup for that completed lifecycle, and a distinct canonical `review_session_id` field so related telemetry can be grouped together in PostHog without collapsing session identity into the run id. If a later import materially changes the review and reopens unresolved findings, Skill Bill clears the finish marker and emits a fresh `skillbill_review_finished` event the next time that review becomes fully resolved. The most useful metrics to watch first are accepted vs rejected counts, rejected severity mix, and rejected finding details grouped by routed skill / review platform.
+The finished event carries: total/accepted/unresolved finding counts, accepted and unresolved severity breakdowns, per-finding outcome counts, rejected-finding details (finding id, severity, confidence, location, description, outcome type, and optional note), applied learnings (count, references, scope mix, and readable content), routed skill, review platform, execution mode, specialist reviews, and a distinct canonical `review_session_id` field so related telemetry can be grouped together in PostHog. Fields explicitly excluded from the payload: `rejected_findings` (count), `rejected_rate`, and `rejected_findings_with_notes` — these are derivable from `rejected_finding_details` and `rejected_severity_counts`. If a later import materially changes the review and reopens unresolved findings, Skill Bill clears the finish marker and emits a fresh event the next time the review becomes fully resolved.
 
-Learning telemetry stays low-noise as well:
-
-- one `skillbill_learnings_resolved` event when resolved learnings are applied for a review context
-- the event includes the applied learning references, counts, and the readable learning content (`title`, `rule_text`, `rationale`) so the resolved guidance is visible in PostHog without restoring per-learning event spam
-- when `learnings resolve` is called with `--review-session-id`, the event also carries `review_session_id` so it can be grouped with the matching `skillbill_review_finished` event
+When `learnings resolve` is called with `--review-session-id`, the resolved learnings are cached locally and included in the matching `skillbill_review_finished` event when it fires.
 
 ## Remote sync defaults
 
@@ -148,10 +144,7 @@ python3 scripts/review_metrics.py telemetry sync
 
 What gets sent:
 
-- import-time review run snapshots with aggregate finding counts, accepted/rejected totals, severity buckets, routed skill/platform context, and rejected-finding details
-- finding outcome events such as `finding_accepted`, `fix_applied`, `finding_edited`, `fix_rejected`, and `false_positive`
-- applied-learning resolution metadata such as count, references, and scope mix
-- the readable learning content (`title`, `rule_text`, `rationale`) for the specific learnings included in a `skillbill_learnings_resolved` event
+- completed review run snapshots with aggregate finding counts, accepted/rejected totals, severity buckets, routed skill/platform context, rejected-finding details (including finding id, severity, confidence, location, description, and outcome type), and applied learnings (count, references, scope mix, and readable content)
 
 What does not get sent:
 

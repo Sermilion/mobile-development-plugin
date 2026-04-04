@@ -520,6 +520,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-code-review` section, read that section and apply it as the highest-priority instruction for this skill.
 
       {REVIEW_SESSION_ID_PLACEHOLDER}
+      Use the review session id format {REVIEW_SESSION_ID_FORMAT}.
       {REVIEW_RUN_ID_PLACEHOLDER}
       Use the review run id format {REVIEW_RUN_ID_FORMAT}.
       Shared router fixture without learnings summary output.

@@ -397,6 +397,10 @@ resolve_platform_selection() {
       printf 'backend-kotlin\n'
       return 0
       ;;
+    agentconfig|skillrepo|skillsinfra)
+      printf '__deprecated_agent_config__\n'
+      return 0
+      ;;
     kotlin)
       printf 'kotlin\n'
       return 0
@@ -407,6 +411,10 @@ resolve_platform_selection() {
       ;;
     php)
       printf 'php\n'
+      return 0
+      ;;
+    go|golang)
+      printf 'go\n'
       return 0
       ;;
   esac
@@ -497,6 +505,10 @@ prompt_for_platform_selection() {
       resolved="$(resolve_platform_selection "$token" 2>/dev/null || true)"
       if [[ -z "$resolved" ]]; then
         invalid_tokens+=("$token")
+        continue
+      fi
+      if [[ "$resolved" == "__deprecated_agent_config__" ]]; then
+        info "Agent config is now always installed. The '$token' alias is no longer needed."
         continue
       fi
       if [[ "$resolved" == "__all__" ]]; then
@@ -837,7 +849,10 @@ export SKILL_BILL_CONFIG_PATH="${SKILL_BILL_CONFIG_PATH:-${SKILL_BILL_STATE_DIR}
 export SKILL_BILL_REVIEW_DB="${SKILL_BILL_REVIEW_DB:-${SKILL_BILL_STATE_DIR}/review-metrics.db}"
 
 if [[ "$TELEMETRY_ENABLED" == "true" ]]; then
-  python3 "$PLUGIN_DIR/scripts/review_metrics.py" telemetry enable --format json >/dev/null || warn "Telemetry setup failed."
+  if ! python3 "$PLUGIN_DIR/scripts/review_metrics.py" telemetry enable --format json >/dev/null; then
+    warn "Telemetry setup failed."
+    TELEMETRY_ENABLED="setup_failed"
+  fi
 elif [[ -e "$SKILL_BILL_CONFIG_PATH" || -e "$SKILL_BILL_REVIEW_DB" ]]; then
   python3 "$PLUGIN_DIR/scripts/review_metrics.py" telemetry disable --format json >/dev/null || warn "Telemetry setup failed."
 fi
@@ -847,7 +862,13 @@ echo ""
 info "Source of truth: $PLUGIN_DIR/skills/"
 info "Platforms:       $(format_platform_list "${SELECTED_PLATFORM_PACKAGES[@]}")"
 info "Command prefix:  ${INSTALL_PREFIX}-"
-info "Telemetry:       $([[ "$TELEMETRY_ENABLED" == "true" ]] && printf 'enabled by default' || printf 'disabled')"
+if [[ "$TELEMETRY_ENABLED" == "true" ]]; then
+  info "Telemetry:       enabled by default"
+elif [[ "$TELEMETRY_ENABLED" == "setup_failed" ]]; then
+  info "Telemetry:       setup failed (python3 may be unavailable)"
+else
+  info "Telemetry:       disabled"
+fi
 for i in "${!AGENT_NAMES[@]}"; do
   agent="${AGENT_NAMES[$i]}"
   agent_dir="${AGENT_PATHS[$i]}"

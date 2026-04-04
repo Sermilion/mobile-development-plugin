@@ -746,7 +746,7 @@ Reason: agent-config signals dominate
       self.assertEqual(payload["proxy_url"], "https://telemetry.example.dev/ingest")
       self.assertEqual(payload["custom_proxy_url"], "https://telemetry.example.dev/ingest")
 
-  def test_telemetry_sync_sends_resolved_learning_details(self) -> None:
+  def test_telemetry_review_finished_includes_resolved_learning_details(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       db_path = Path(temp_dir) / "metrics.db"
       config_path = Path(temp_dir) / "config.json"
@@ -756,7 +756,8 @@ Reason: agent-config signals dominate
         review_metrics.INSTALL_ID_ENVIRONMENT_KEY: "install-test-123",
       }
       self.import_sample_review(db_path, temp_dir, env=enabled_env, block_telemetry_delivery=True)
-      reject_finding = self.run_cli_with_blocked_telemetry_delivery(
+
+      reject_f001 = self.run_cli_with_blocked_telemetry_delivery(
         [
           "--db", str(db_path),
           "triage", "--run-id", "rvw-20260402-001",
@@ -765,29 +766,20 @@ Reason: agent-config signals dominate
         ],
         env=enabled_env,
       )
-      self.assertEqual(reject_finding["exit_code"], 0, reject_finding["stderr"])
+      self.assertEqual(reject_f001["exit_code"], 0, reject_f001["stderr"])
+
       add_learning = self.run_cli_with_blocked_telemetry_delivery(
         [
-          "--db",
-          str(db_path),
-          "learnings",
-          "add",
-          "--scope",
-          "skill",
-          "--scope-key",
-          "bill-agent-config-code-review",
-          "--title",
-          "README staleness after routing changes is expected",
-          "--rule",
-          "Do not flag README wording as stale after routing changes — it is updated in the next docs pass.",
-          "--reason",
-          "README wording is stale by design during routing changes",
-          "--from-run",
-          "rvw-20260402-001",
-          "--from-finding",
-          "F-001",
-          "--format",
-          "json",
+          "--db", str(db_path),
+          "learnings", "add",
+          "--scope", "skill",
+          "--scope-key", "bill-agent-config-code-review",
+          "--title", "README staleness after routing changes is expected",
+          "--rule", "Do not flag README wording as stale after routing changes — it is updated in the next docs pass.",
+          "--reason", "README wording is stale by design during routing changes",
+          "--from-run", "rvw-20260402-001",
+          "--from-finding", "F-001",
+          "--format", "json",
         ],
         env=enabled_env,
       )
@@ -795,81 +787,55 @@ Reason: agent-config signals dominate
 
       resolve_learning = self.run_cli_with_blocked_telemetry_delivery(
         [
-          "--db",
-          str(db_path),
-          "learnings",
-          "resolve",
-          "--repo",
-          "private/repo-name",
-          "--skill",
-          "bill-agent-config-code-review",
-          "--review-session-id",
-          "rvs-20260402-001",
-          "--format",
-          "json",
+          "--db", str(db_path),
+          "learnings", "resolve",
+          "--repo", "private/repo-name",
+          "--skill", "bill-agent-config-code-review",
+          "--review-session-id", "rvs-20260402-001",
+          "--format", "json",
         ],
         env=enabled_env,
       )
       self.assertEqual(resolve_learning["exit_code"], 0, resolve_learning["stderr"])
 
-      captured_requests: list[dict[str, object]] = []
+      accept_f002 = self.run_cli_with_blocked_telemetry_delivery(
+        [
+          "--db", str(db_path),
+          "triage", "--run-id", "rvw-20260402-001",
+          "--decision", "2 accept",
+          "--format", "json",
+        ],
+        env=enabled_env,
+      )
+      self.assertEqual(accept_f002["exit_code"], 0, accept_f002["stderr"])
 
-      class FakeResponse:
-        status = 200
-
-        def __enter__(self):
-          return self
-
-        def __exit__(self, exc_type, exc, tb):
-          return False
-
-        def getcode(self) -> int:
-          return 200
-
-      def fake_urlopen(request, timeout=10):
-        captured_requests.append(json.loads(request.data.decode("utf-8")))
-        return FakeResponse()
-
-      sync_env = {
-        review_metrics.CONFIG_ENVIRONMENT_KEY: str(config_path),
-        review_metrics.TELEMETRY_ENABLED_ENVIRONMENT_KEY: "true",
-        review_metrics.INSTALL_ID_ENVIRONMENT_KEY: "install-test-123",
-      }
-      with patch.object(review_metrics.urllib.request, "urlopen", side_effect=fake_urlopen):
-        sync_result = self.run_cli(
-          ["--db", str(db_path), "telemetry", "sync", "--format", "json"],
-          env=sync_env,
-        )
+      sync_result, captured_urls, captured_requests = self.sync_with_capture(
+        db_path,
+        config_path,
+        env={
+          review_metrics.CONFIG_ENVIRONMENT_KEY: str(config_path),
+          review_metrics.TELEMETRY_ENABLED_ENVIRONMENT_KEY: "true",
+          review_metrics.INSTALL_ID_ENVIRONMENT_KEY: "install-test-123",
+        },
+      )
 
       self.assertEqual(sync_result["exit_code"], 0, sync_result["stderr"])
       payload = json.loads(sync_result["stdout"])
-      self.assertEqual(payload["sync_target"], "hosted_relay")
-      self.assertTrue(payload["remote_configured"])
       self.assertEqual(payload["sync_status"], "synced")
       self.assertEqual(payload["synced_events"], 1)
-      self.assertEqual(payload["pending_events"], 0)
       self.assertEqual(len(captured_requests), 1)
 
-      request_payload = captured_requests[0]
-      events = request_payload["batch"]
+      events = captured_requests[0]["batch"]
+      self.assertEqual([event["event"] for event in events], ["skillbill_review_finished"])
+
+      finished = events[0]["properties"]
+      self.assertEqual(finished["review_session_id"], "rvs-20260402-001")
+      self.assertEqual(finished["applied_learning_count"], 1)
+      self.assertEqual(finished["applied_learning_references"], ["L-001"])
+      self.assertEqual(finished["applied_learnings"], "L-001")
+      self.assertEqual(finished["scope_counts"], {"global": 0, "repo": 0, "skill": 1})
       self.assertEqual(
-        [event["event"] for event in events],
-        [
-          "skillbill_learnings_resolved",
-        ],
-      )
-      event = events[0]
-      self.assertEqual(event["distinct_id"], "install-test-123")
-      self.assertFalse(event["properties"].get("$process_person_profile", True))
-      self.assertIn("$insert_id", event["properties"])
-      self.assertEqual(event["properties"]["skill_name"], "bill-agent-config-code-review")
-      self.assertEqual(event["properties"]["review_session_id"], "rvs-20260402-001")
-      self.assertEqual(event["properties"]["applied_learning_count"], 1)
-      self.assertEqual(event["properties"]["applied_learning_references"], ["L-001"])
-      self.assertEqual(event["properties"]["applied_learnings"], "L-001")
-      self.assertEqual(event["properties"]["scope_counts"], {"global": 0, "repo": 0, "skill": 1})
-      self.assertEqual(
-        event["properties"]["learnings"],
+        finished["learnings"],
         [
           {
             "reference": "L-001",
@@ -1026,7 +992,10 @@ Reason: agent-config signals dominate
       self.assertNotIn("api_key", captured_requests[0])
 
       events = captured_requests[0]["batch"]
-      self.assertEqual([event["event"] for event in events], ["skillbill_review_finished"])
+      self.assertEqual(
+        [event["event"] for event in events],
+        ["skillbill_review_finished"],
+      )
       finished_event = events[0]
       self.assertEqual(finished_event["distinct_id"], "install-test-123")
       self.assertFalse(finished_event["properties"].get("$process_person_profile", True))
@@ -1182,7 +1151,10 @@ Reason: agent-config signals dominate
       self.assertEqual(len(captured_requests), 1)
 
       events = captured_requests[0]["batch"]
-      self.assertEqual([event["event"] for event in events], ["skillbill_review_finished"])
+      self.assertEqual(
+        [event["event"] for event in events],
+        ["skillbill_review_finished"],
+      )
 
       review_summary = events[0]["properties"]
       self.assertEqual(review_summary["accepted_findings"], 0)

@@ -11,17 +11,13 @@ This example lets Skill Bill clients send telemetry to a small Cloudflare Worker
 
 The client payload stays the same privacy-scoped metadata already produced by `scripts/review_metrics.py`:
 
-- skill usage metadata
-- review feedback outcome metadata
-- learnings lifecycle metadata
-- applied-learning count and reference metadata
-- the readable learning content (`title`, `rule_text`, `rationale`) for the specific learnings included in a `skillbill_learnings_resolved` event
+- completed review run snapshots with finding outcomes, severity buckets, rejected-finding details, and applied learnings (count, references, scope mix, and readable content)
 
 It still excludes:
 
 - repository identity
 - raw review text
-- local-only learning bookkeeping events such as add, edit, disable, and delete
+- local-only learning bookkeeping events
 
 ## Deploy
 
