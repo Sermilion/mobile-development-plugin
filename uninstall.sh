@@ -157,7 +157,7 @@ remove_from_agent_dir() {
   fi
 }
 
-unregister_mcp_server() {
+unregister_mcp_json() {
   local config_path="$1"
   local label="$2"
   if [[ ! -f "$config_path" ]]; then
@@ -182,6 +182,45 @@ open(path, 'w').write(json.dumps(settings, indent=2, sort_keys=True) + '\n')
   fi
 }
 
+unregister_mcp_toml() {
+  local config_path="$1"
+  local label="$2"
+  if [[ ! -f "$config_path" ]]; then
+    return 0
+  fi
+  if python3 -c "
+import sys, os
+path = sys.argv[1]
+if not os.path.exists(path):
+    sys.exit(0)
+lines = open(path).read().splitlines()
+section = '[mcp_servers.skill-bill]'
+filtered = []
+skip = False
+found = False
+for line in lines:
+    if line.strip() == section:
+        skip = True
+        found = True
+        continue
+    if skip and (line.startswith('[') or not line.strip()):
+        if line.startswith('['):
+            skip = False
+            filtered.append(line)
+        continue
+    if not skip:
+        filtered.append(line)
+if not found:
+    sys.exit(0)
+while filtered and not filtered[-1].strip():
+    filtered.pop()
+filtered.append('')
+open(path, 'w').write('\n'.join(filtered))
+" "$config_path" 2>/dev/null; then
+    ok "  removed skill-bill MCP server ($label)"
+  fi
+}
+
 build_skill_names
 build_legacy_skill_names
 
@@ -197,10 +236,10 @@ remove_from_agent_dir "codex" "$HOME/.codex/skills"
 remove_from_agent_dir "codex" "$HOME/.agents/skills"
 
 info "Removing MCP server registrations."
-unregister_mcp_server "$HOME/.claude.json" "claude"
-unregister_mcp_server "$HOME/.copilot/mcp-config.json" "copilot"
-unregister_mcp_server "$HOME/.codex/mcp-config.json" "codex"
-unregister_mcp_server "$HOME/.glm/mcp-config.json" "glm"
+unregister_mcp_json "$HOME/.claude.json" "claude"
+unregister_mcp_json "$HOME/.copilot/mcp-config.json" "copilot"
+unregister_mcp_toml "$HOME/.codex/config.toml" "codex"
+unregister_mcp_json "$HOME/.glm/mcp-config.json" "glm"
 
 echo ""
 printf "${GREEN}━━━ Uninstall complete ━━━${NC}\n"
