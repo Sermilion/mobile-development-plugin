@@ -216,9 +216,19 @@ def update_review_finished_telemetry_state(
     enabled = telemetry_is_enabled()
   review_summary = fetch_review_summary(connection, review_run_id)
 
-  execution_mode = str(review_summary["execution_mode"] or "")
-  if execution_mode == "delegated":
-    return
+  session_id = str(review_summary["review_session_id"] or "")
+  if session_id:
+    already_emitted = connection.execute(
+      """
+      SELECT 1 FROM review_runs
+      WHERE review_session_id = ?
+        AND review_run_id != ?
+        AND review_finished_event_emitted_at IS NOT NULL
+      """,
+      (session_id, review_run_id),
+    ).fetchone()
+    if already_emitted:
+      return
 
   finding_rows = latest_finding_outcomes(connection, review_run_id=review_run_id)
   summarized_findings = summarize_finding_rows(finding_rows)
