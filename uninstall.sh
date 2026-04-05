@@ -197,7 +197,7 @@ remove_from_agent_dir "codex" "$HOME/.codex/skills"
 remove_from_agent_dir "codex" "$HOME/.agents/skills"
 
 info "Removing MCP server registrations."
-unregister_mcp_server "$HOME/.claude/settings.local.json" "claude"
+unregister_mcp_server "$HOME/.claude.json" "claude"
 unregister_mcp_server "$HOME/.copilot/mcp-config.json" "copilot"
 unregister_mcp_server "$HOME/.codex/mcp-config.json" "codex"
 unregister_mcp_server "$HOME/.glm/mcp-config.json" "glm"

@@ -878,7 +878,7 @@ open(path, 'w').write(json.dumps(settings, indent=2, sort_keys=True) + '\n')
   }
   for i in "${!AGENT_NAMES[@]}"; do
     case "${AGENT_NAMES[$i]}" in
-      claude)  register_mcp_server "$HOME/.claude/settings.local.json" "claude" ;;
+      claude)  register_mcp_server "$HOME/.claude.json" "claude" ;;
       copilot) register_mcp_server "$HOME/.copilot/mcp-config.json" "copilot" ;;
       codex)   register_mcp_server "$HOME/.codex/mcp-config.json" "codex" ;;
       glm)     register_mcp_server "$HOME/.glm/mcp-config.json" "glm" ;;
