@@ -216,12 +216,8 @@ def update_review_finished_telemetry_state(
     enabled = telemetry_is_enabled()
   review_summary = fetch_review_summary(connection, review_run_id)
 
-  session_id = str(review_summary["review_session_id"] or "")
-  sibling_count = connection.execute(
-    "SELECT COUNT(*) FROM review_runs WHERE review_session_id = ?",
-    (session_id,),
-  ).fetchone()[0] if session_id else 1
-  if sibling_count > 1:
+  execution_mode = str(review_summary["execution_mode"] or "")
+  if execution_mode == "delegated":
     return
 
   finding_rows = latest_finding_outcomes(connection, review_run_id=review_run_id)
