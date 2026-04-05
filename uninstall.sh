@@ -157,6 +157,31 @@ remove_from_agent_dir() {
   fi
 }
 
+unregister_mcp_server() {
+  local config_path="$1"
+  local label="$2"
+  if [[ ! -f "$config_path" ]]; then
+    return 0
+  fi
+  if python3 -c "
+import json, sys
+path = sys.argv[1]
+try:
+    settings = json.loads(open(path).read())
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(0)
+servers = settings.get('mcpServers', {})
+if 'skill-bill' not in servers:
+    sys.exit(0)
+del servers['skill-bill']
+if not servers:
+    del settings['mcpServers']
+open(path, 'w').write(json.dumps(settings, indent=2, sort_keys=True) + '\n')
+" "$config_path" 2>/dev/null; then
+    ok "  removed skill-bill MCP server ($label)"
+  fi
+}
+
 build_skill_names
 build_legacy_skill_names
 
@@ -170,6 +195,12 @@ remove_from_agent_dir "claude" "$HOME/.claude/commands"
 remove_from_agent_dir "glm" "$HOME/.glm/commands"
 remove_from_agent_dir "codex" "$HOME/.codex/skills"
 remove_from_agent_dir "codex" "$HOME/.agents/skills"
+
+info "Removing MCP server registrations."
+unregister_mcp_server "$HOME/.claude/settings.local.json" "claude"
+unregister_mcp_server "$HOME/.copilot/mcp-config.json" "copilot"
+unregister_mcp_server "$HOME/.codex/mcp-config.json" "codex"
+unregister_mcp_server "$HOME/.glm/mcp-config.json" "glm"
 
 echo ""
 printf "${GREEN}━━━ Uninstall complete ━━━${NC}\n"
