@@ -864,7 +864,7 @@ except (FileNotFoundError, json.JSONDecodeError):
 servers = settings.get('mcpServers', {})
 servers['skill-bill'] = {
     'type': 'stdio',
-    'command': 'python3',
+    'command': sys.executable,
     'args': ['-m', 'skill_bill.mcp_server']
 }
 settings['mcpServers'] = servers
