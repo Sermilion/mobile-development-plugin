@@ -49,14 +49,17 @@ class UninstallScriptTest(unittest.TestCase):
       install = self.run_script(INSTALL_SCRIPT, temp_home, "copilot\nPHP\nacme\n")
       self.assertEqual(install.returncode, 0, install.stdout + install.stderr)
 
+      agents_dir = Path(temp_home) / ".copilot" / "agents"
       for agent_file in COPILOT_AGENT_TEMPLATES_DIR.glob("*.agent.md"):
-        self.assertTrue((Path(temp_home) / ".copilot" / "agents" / agent_file.name).exists())
+        rewritten = agent_file.name.replace("bill-", "acme-", 1)
+        self.assertTrue((agents_dir / rewritten).exists(), rewritten)
 
       uninstall = self.run_script(UNINSTALL_SCRIPT, temp_home)
       self.assertEqual(uninstall.returncode, 0, uninstall.stdout + uninstall.stderr)
 
       for agent_file in COPILOT_AGENT_TEMPLATES_DIR.glob("*.agent.md"):
-        self.assertFalse((Path(temp_home) / ".copilot" / "agents" / agent_file.name).exists())
+        rewritten = agent_file.name.replace("bill-", "acme-", 1)
+        self.assertFalse((agents_dir / rewritten).exists(), rewritten)
 
   def test_uninstall_removes_legacy_skill_symlinks_and_is_idempotent(self) -> None:
     with tempfile.TemporaryDirectory() as temp_home:

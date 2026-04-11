@@ -2,7 +2,7 @@
 
 Treat your AI skills like software — with stable interfaces, platform overrides, and validation that prevents the repo from rotting.
 
-sKill Bill is a portable collection of 49 AI skills for code review, feature implementation, and developer tooling. One repo, synced to every supported agent. Currently strongest for Kotlin, Android/KMP, Kotlin backend/server, PHP backends, Go backends/services, and governed skill/agent-config repositories.
+sKill Bill is a portable collection of 50 AI skills for code review, feature implementation, and developer tooling. One repo, synced to every supported agent. Currently strongest for Kotlin, Android/KMP, Kotlin backend/server, PHP backends, Go backends/services, and governed skill/agent-config repositories.
 
 ## Why this exists
 
@@ -229,11 +229,12 @@ The uninstaller is idempotent. It removes current Skill Bill installs, generated
 | `/bill-go-code-review-performance` | Go performance review |
 | `/bill-go-code-review-testing` | Go test quality review |
 
-### Feature Lifecycle (5 skills)
+### Feature Lifecycle (6 skills)
 
 | Skill | Purpose |
 |-------|---------|
 | `/bill-feature-implement` | Spec-to-verified implementation workflow |
+| `/bill-feature-implement-agentic` | Runtime-agnostic orchestrator with subagent delegation |
 | `/bill-feature-implement-copilot` | Copilot-optimized orchestrator with sub-agent delegation |
 | `/bill-feature-verify` | Verify a PR against a task spec |
 | `/bill-feature-guard` | Add feature-flag rollout safety |
