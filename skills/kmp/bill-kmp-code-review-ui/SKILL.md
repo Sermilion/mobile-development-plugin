@@ -17,7 +17,7 @@ Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGEN
 
 The canonical KMP UI review command stays `bill-kmp-code-review-ui`. Governed add-ons apply only after the parent review has already routed to `kmp`.
 
-When the parent KMP review selects the `android-compose` add-on, read [android-compose-review.md](android-compose-review.md) as supplemental Android/Compose review guidance.
+When the parent KMP review selects the `android-compose` add-on, scan [android-compose-review.md](android-compose-review.md) first. If the add-on is split into topic files, open only the linked topic files whose cues match the diff, such as [android-compose-edge-to-edge.md](android-compose-edge-to-edge.md), [android-compose-navigation.md](android-compose-navigation.md), and [android-compose-adaptive-layouts.md](android-compose-adaptive-layouts.md).
 
 When no governed add-on applies, keep `Selected add-ons: none` and use the base Compose review rubric by itself.
 

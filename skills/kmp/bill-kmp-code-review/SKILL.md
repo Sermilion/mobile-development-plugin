@@ -74,7 +74,7 @@ After the stack is already classified as `kmp`, resolve governed add-ons before 
 
 - Start with `Selected add-ons: none`.
 - Select `android-compose` when the scoped diff contains Compose UI signals such as `@Composable`, Compose UI state, `Modifier` chains, previews, `remember*`, or Compose side effects.
-- Read [android-compose-review.md](android-compose-review.md) only when `android-compose` is selected.
+- Scan [android-compose-review.md](android-compose-review.md) first. If the add-on is split into topic files, open only the linked topic files whose cues match the scoped diff when `android-compose` is selected, such as [android-compose-edge-to-edge.md](android-compose-edge-to-edge.md), [android-compose-navigation.md](android-compose-navigation.md), and [android-compose-adaptive-layouts.md](android-compose-adaptive-layouts.md).
 - Add-ons enrich the routed KMP review; they do not create standalone reviewer names or bypass the `kmp` route.
 
 ---

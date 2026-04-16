@@ -135,7 +135,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo([("base", "bill-code-review")]) as repo_root:
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn("2 governed add-on files", result.stdout)
+      self.assertIn("5 governed add-on files", result.stdout)
 
   def test_accepts_governed_addon_files_with_future_expansion_names(self) -> None:
     with self.fixture_repo([("base", "bill-code-review")]) as repo_root:
@@ -145,7 +145,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       area_scoped_addon.write_text("# valid\n", encoding="utf-8")
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn("4 governed add-on files", result.stdout)
+      self.assertIn("7 governed add-on files", result.stdout)
 
   def test_rejects_governed_addon_under_base_package(self) -> None:
     with self.fixture_repo([("base", "bill-feature-implement")]) as repo_root:
@@ -575,6 +575,9 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
         # KMP Android Compose Add-On
 
         This governed add-on provides implementation guidance for KMP Compose work.
+
+        ## Section index
+        - [android-compose-edge-to-edge.md](android-compose-edge-to-edge.md)
         """
       ),
       encoding="utf-8",
@@ -586,10 +589,19 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
         # KMP Android Compose Review Add-On
 
         This governed add-on provides review guidance for KMP Compose work.
+
+        ## Section index
+        - [android-compose-navigation.md](android-compose-navigation.md)
         """
       ),
       encoding="utf-8",
     )
+    edge_to_edge = repo_root / "skills" / "kmp" / "addons" / "android-compose-edge-to-edge.md"
+    edge_to_edge.write_text("# Edge-to-edge\n", encoding="utf-8")
+    navigation = repo_root / "skills" / "kmp" / "addons" / "android-compose-navigation.md"
+    navigation.write_text("# Navigation\n", encoding="utf-8")
+    adaptive = repo_root / "skills" / "kmp" / "addons" / "android-compose-adaptive-layouts.md"
+    adaptive.write_text("# Adaptive layouts\n", encoding="utf-8")
 
   def write_skill(
     self,

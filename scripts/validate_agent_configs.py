@@ -312,7 +312,10 @@ def validate_runtime_supporting_files(
 
   for file_name in required_files:
     supporting_file = skill_file.parent / file_name
-    if skill_name in {"bill-feature-implement", "bill-feature-implement-agentic"} and file_name == "android-compose-implementation.md":
+    if (
+      skill_name in {"bill-feature-implement", "bill-feature-implement-agentic"}
+      and file_name.startswith("android-compose-")
+    ):
       if file_name not in text and "matching stack-owned add-on supporting files" not in text:
         issues.append(
           f"{skill_file}: must reference local supporting file '{file_name}' or describe stack-owned add-on support-file selection"

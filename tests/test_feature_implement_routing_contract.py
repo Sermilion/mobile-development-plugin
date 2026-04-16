@@ -48,6 +48,10 @@ AGENT_CONFIG_QUALITY_CHECK = read("skills/agent-config/bill-agent-config-quality
 KOTLIN_CODE_REVIEW = read("skills/kotlin/bill-kotlin-code-review/SKILL.md")
 BACKEND_KOTLIN_CODE_REVIEW = read("skills/backend-kotlin/bill-backend-kotlin-code-review/SKILL.md")
 KMP_CODE_REVIEW = read("skills/kmp/bill-kmp-code-review/SKILL.md")
+KMP_ANDROID_COMPOSE_EDGE_TO_EDGE = read("skills/kmp/addons/android-compose-edge-to-edge.md")
+KMP_ANDROID_COMPOSE_NAVIGATION = read("skills/kmp/addons/android-compose-navigation.md")
+KMP_ANDROID_COMPOSE_ADAPTIVE = read("skills/kmp/addons/android-compose-adaptive-layouts.md")
+KMP_ANDROID_COMPOSE_IMPLEMENTATION = read("skills/kmp/addons/android-compose-implementation.md")
 KMP_ANDROID_COMPOSE_REVIEW = read("skills/kmp/addons/android-compose-review.md")
 KMP_COMPOSE_UI_REVIEW = read("skills/kmp/bill-kmp-code-review-ui/SKILL.md")
 PHP_CODE_REVIEW = read("skills/php/bill-php-code-review/SKILL.md")
@@ -254,7 +258,11 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
       FEATURE_IMPLEMENT,
     )
     self.assertIn(
-      "matching stack-owned add-on supporting files",
+      "scan the matching stack-owned add-on supporting files' `## Section index` headings first",
+      FEATURE_IMPLEMENT,
+    )
+    self.assertIn(
+      "If the add-on is split into topic files, open only the linked topic files whose cues match the work.",
       FEATURE_IMPLEMENT,
     )
     self.assertNotIn(
@@ -270,7 +278,11 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
       FEATURE_IMPLEMENT_AGENTIC,
     )
     self.assertIn(
-      "matching stack-owned add-on supporting files",
+      "scan the matching stack-owned add-on supporting files' `## Section index` headings first",
+      FEATURE_IMPLEMENT_AGENTIC,
+    )
+    self.assertIn(
+      "If the add-on is split into topic files, open only the linked topic files whose cues match the work",
       FEATURE_IMPLEMENT_AGENTIC,
     )
     self.assertNotIn(
@@ -284,7 +296,7 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
 
   def test_kmp_compose_review_skill_keeps_review_rubric_as_enforcement_layer(self) -> None:
     self.assertIn(
-      "When the parent KMP review selects the `android-compose` add-on, read [android-compose-review.md](android-compose-review.md) as supplemental Android/Compose review guidance.",
+      "When the parent KMP review selects the `android-compose` add-on, scan [android-compose-review.md](android-compose-review.md) first. If the add-on is split into topic files, open only the linked topic files whose cues match the diff, such as [android-compose-edge-to-edge.md](android-compose-edge-to-edge.md), [android-compose-navigation.md](android-compose-navigation.md), and [android-compose-adaptive-layouts.md](android-compose-adaptive-layouts.md).",
       KMP_COMPOSE_UI_REVIEW,
     )
     self.assertIn(
@@ -296,7 +308,23 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
       KMP_COMPOSE_UI_REVIEW,
     )
     self.assertIn(
-      "This file supplements `bill-kmp-code-review` and `bill-kmp-code-review-ui`.",
+      "This file is a review index for `bill-kmp-code-review` and `bill-kmp-code-review-ui`.",
+      KMP_ANDROID_COMPOSE_REVIEW,
+    )
+    self.assertIn(
+      "## Section index",
+      KMP_ANDROID_COMPOSE_REVIEW,
+    )
+    self.assertIn(
+      "[android-compose-edge-to-edge.md](android-compose-edge-to-edge.md)",
+      KMP_ANDROID_COMPOSE_REVIEW,
+    )
+    self.assertIn(
+      "[android-compose-navigation.md](android-compose-navigation.md)",
+      KMP_ANDROID_COMPOSE_REVIEW,
+    )
+    self.assertIn(
+      "[android-compose-adaptive-layouts.md](android-compose-adaptive-layouts.md)",
       KMP_ANDROID_COMPOSE_REVIEW,
     )
     self.assertIn(
@@ -311,6 +339,25 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
       "Selected add-ons: none | <add-on slugs>",
       KMP_CODE_REVIEW,
     )
+
+  def test_kmp_android_compose_implementation_addon_is_sectioned_for_selective_reads(self) -> None:
+    self.assertIn("## Section index", KMP_ANDROID_COMPOSE_IMPLEMENTATION)
+    self.assertIn(
+      "open only the linked topic files whose cues match the current work instead of loading all Android guidance by default.",
+      KMP_ANDROID_COMPOSE_IMPLEMENTATION,
+    )
+    self.assertIn("[android-compose-edge-to-edge.md](android-compose-edge-to-edge.md)", KMP_ANDROID_COMPOSE_IMPLEMENTATION)
+    self.assertIn("[android-compose-navigation.md](android-compose-navigation.md)", KMP_ANDROID_COMPOSE_IMPLEMENTATION)
+    self.assertIn("[android-compose-adaptive-layouts.md](android-compose-adaptive-layouts.md)", KMP_ANDROID_COMPOSE_IMPLEMENTATION)
+    self.assertIn("## Android-specific verification checklist", KMP_ANDROID_COMPOSE_IMPLEMENTATION)
+
+  def test_kmp_android_compose_topic_files_add_android_specific_depth_without_generic_compose_duplication(self) -> None:
+    self.assertIn("system/edge-to-edge", KMP_ANDROID_COMPOSE_EDGE_TO_EDGE)
+    self.assertIn("adjustResize", KMP_ANDROID_COMPOSE_EDGE_TO_EDGE)
+    self.assertIn("navigation/navigation-3", KMP_ANDROID_COMPOSE_NAVIGATION)
+    self.assertIn("multiple back stacks", KMP_ANDROID_COMPOSE_NAVIGATION)
+    self.assertIn("list-detail", KMP_ANDROID_COMPOSE_ADAPTIVE)
+    self.assertIn("NavigationSuiteScaffold", KMP_ANDROID_COMPOSE_ADAPTIVE)
 
   def test_php_context_routes_to_php_review_and_quality_check(self) -> None:
     self.assertIn(
