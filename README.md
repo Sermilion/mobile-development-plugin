@@ -4,7 +4,7 @@ A framework for governed, portable AI-agent behavior across every major coding a
 
 sKill Bill is a framework, not a prompt library. It ships a governed *shell + content* architecture, a scaffolder for authoring new skills, and a cross-agent installer that syncs one source of truth to Claude Code, Copilot, Codex, OpenCode, and GLM. The shell+content contract is versioned at `orchestration/shell-content-contract/PLAYBOOK.md`.
 
-The repository also ships with reference skill packs — code review, quality check, feature implementation, PR description — across Kotlin, KMP, backend-Kotlin, PHP, Go, and agent-config. Use them as-is, fork them, or ignore them and author your own. The governance model is the product; the packs are examples. Platform depth varies — see [reference platform packs](#reference-platform-packs) for what each stack gets today.
+The repository also ships with a reference collection of 48 AI skills — code review, quality check, feature implementation, PR description — across Kotlin, KMP, backend-Kotlin, PHP, Go, and agent-config. Use them as-is, fork them, or ignore them and author your own. The governance model is the product; the packs are examples. Platform depth varies — see [reference platform packs](#reference-platform-packs) for what each stack gets today.
 
 Rolling out to a team? Start with [Getting Started for Teams](docs/getting-started-for-teams.md) — it covers customization, expectations, and when to trust vs. verify output.
 
