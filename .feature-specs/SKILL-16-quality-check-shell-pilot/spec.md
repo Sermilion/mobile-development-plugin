@@ -2,7 +2,7 @@
 issue_key: SKILL-16
 feature_name: quality-check-shell-pilot
 feature_size: LARGE
-status: In Progress
+status: Complete
 created: 2026-04-17
 depends_on: SKILL-14 (shell+content contract — shipped), SKILL-15 (new-skill scaffolder — shipped)
 ---
