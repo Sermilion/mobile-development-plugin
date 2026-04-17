@@ -134,10 +134,45 @@ The scaffolded skill links the sibling sidecars `stack-routing.md` and
 ```
 
 This lands the add-on file at
-`platform-packs/kmp/addons/android-paging.md` and appends a new entry to the
-pack's `declared_addons` list in `platform-packs/kmp/platform.yaml`. The
-pack must already declare `governs_addons: true`; the scaffolder refuses
+`platform-packs/kmp/addons/android-paging.md` and appends a **single-file
+placeholder entry** to `declared_addons` in
+`platform-packs/kmp/platform.yaml` where both `implementation` and `review`
+point at the same `addons/android-paging.md` file. The scaffolder uses
+this default so a one-shot `new-skill` call always produces a contract-valid
+manifest; callers who want the conventional
+`<name>-implementation.md`/`<name>-review.md` split must either (1) pass a
+richer `addon_entry` in the payload (see below) or (2) rename the
+placeholder file and edit the manifest after scaffolding.
+
+The pack must already declare `governs_addons: true`; the scaffolder refuses
 to flip the flag on your behalf.
+
+#### Richer entry override
+
+To register separate implementation, review, and topic files in one
+scaffold call, pass an `addon_entry` mapping. The scaffolder validates the
+shape but does NOT create the additional files on your behalf — you are
+expected to author them in the same commit:
+
+```json
+{
+  "scaffold_payload_version": "1.0",
+  "kind": "add-on",
+  "name": "android-paging",
+  "platform": "kmp",
+  "addon_entry": {
+    "slug": "android-paging",
+    "implementation": "addons/android-paging-implementation.md",
+    "review": "addons/android-paging-review.md",
+    "topic_files": [
+      "addons/android-paging-cursor-apis.md"
+    ]
+  }
+}
+```
+
+`addon_entry` must be a mapping with a non-empty `slug`, `implementation`,
+and `review`; a malformed shape raises `InvalidScaffoldPayloadError`.
 
 ## Loud-Fail Exception Catalog
 

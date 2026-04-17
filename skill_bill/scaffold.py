@@ -346,6 +346,19 @@ def _plan_add_on(payload: dict, repo_root: Path) -> dict[str, Any]:
     )
   addons_root = pack_root / "addons"
   skill_file = addons_root / f"{name}.md"
+
+  # Optional richer manifest entry. Callers that want separate
+  # ``implementation`` / ``review`` / ``topic_files`` paths (matching the
+  # kmp add-on naming conventions) pass an ``addon_entry`` mapping in the
+  # payload; otherwise the scaffolder falls back to the single-file
+  # placeholder documented in ``SCAFFOLD_PAYLOAD.md``.
+  addon_entry = payload.get("addon_entry")
+  if addon_entry is not None and not isinstance(addon_entry, dict):
+    raise InvalidScaffoldPayloadError(
+      "'addon_entry' must be a mapping with 'slug', 'implementation', "
+      "'review', and optional 'topic_files'."
+    )
+
   return {
     "kind": SKILL_KIND_ADD_ON,
     "skill_name": name,
@@ -356,6 +369,7 @@ def _plan_add_on(payload: dict, repo_root: Path) -> dict[str, Any]:
     "area": "",
     "is_shelled": False,
     "notes": [],
+    "addon_entry": addon_entry,
   }
 
 
@@ -489,13 +503,18 @@ def _apply_manifest_edits(txn: _ScaffoldTransaction, plan: dict[str, Any], repo_
     return [manifest_path]
 
   if plan["kind"] == SKILL_KIND_ADD_ON:
-    # SKILL-17: governed add-ons land in the owning pack's addons/ flat
-    # directory and must register under declared_addons in the pack
-    # manifest. The scaffolder uses the add-on slug ``name`` as-is; the
-    # pack author can add implementation/review/topic_files paths later.
-    # We register a minimal entry — a single file under addons/<name>.md
-    # is treated as the implementation file and a placeholder review
-    # filename is suggested by the caller via the payload when available.
+    # SKILL-17: governed add-ons register under ``declared_addons`` on the
+    # owning pack's platform.yaml. Two payload modes are supported, fully
+    # documented in ``orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md``:
+    #
+    # 1. Default (no ``addon_entry`` on the payload): a single-file
+    #    placeholder is registered with both ``implementation`` and
+    #    ``review`` pointing at ``addons/<name>.md``. Intentionally lax so
+    #    a one-shot scaffold call still produces a contract-valid manifest.
+    # 2. Richer override: callers may pass ``addon_entry`` with explicit
+    #    ``slug``, ``implementation``, ``review``, and optional
+    #    ``topic_files`` paths. The scaffolder only appends to the
+    #    manifest — authoring the additional files is the caller's job.
     from skill_bill.scaffold_manifest import append_declared_addon
 
     manifest_path = repo_root / "platform-packs" / plan["platform"] / "platform.yaml"

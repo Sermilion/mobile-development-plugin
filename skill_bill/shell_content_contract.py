@@ -676,13 +676,22 @@ def load_addon_content(pack: PlatformPack, slug: str) -> AddonDeclaration:
 
 
 def scan_orphan_addon_files(pack: PlatformPack) -> None:
-  """Raise :class:`OrphanAddonFileError` for unreferenced files under ``addons/``.
+  """Raise :class:`OrphanAddonFileError` for drift under ``addons/``.
 
-  Walks ``<pack.pack_root>/addons/`` (flat) and flags any ``*.md`` file
-  that is not declared as an implementation path, a review path, or a
-  topic file in any :class:`AddonDeclaration`. Only runs for packs with
-  ``governs_addons: true`` — packs that do not govern add-ons carry no
-  expectation of an ``addons/`` directory.
+  Walks ``<pack.pack_root>/addons/`` flat and loud-fails on three drift
+  modes, all documented in AGENTS.md as part of the governed add-on
+  contract:
+
+  - **Nested directories** — the add-on layout is flat; a nested dir
+    (e.g. ``addons/experimental/``) silently escapes manifest discovery.
+  - **Non-markdown files** — only ``*.md`` is allowed under ``addons/``;
+    a stray binary or script would not be loaded by any shell anyway.
+  - **Orphan markdown files** — a ``*.md`` file that is not declared as
+    an implementation, review, or topic file on any
+    :class:`AddonDeclaration`.
+
+  Only runs for packs with ``governs_addons: true`` — packs that do not
+  govern add-ons carry no expectation of an ``addons/`` directory.
   """
   if not pack.governs_addons:
     return
@@ -697,21 +706,44 @@ def scan_orphan_addon_files(pack: PlatformPack) -> None:
     for topic_file in declaration.topic_files:
       referenced.add(topic_file)
 
+  nested_dirs: list[Path] = []
+  non_markdown_files: list[Path] = []
   orphans: list[Path] = []
   for candidate in sorted(addons_dir.iterdir()):
+    if candidate.is_dir():
+      nested_dirs.append(candidate)
+      continue
     if not candidate.is_file():
       continue
     if candidate.suffix != ".md":
+      non_markdown_files.append(candidate)
       continue
     if candidate.resolve() not in referenced:
       orphans.append(candidate)
 
+  problems: list[str] = []
+  if nested_dirs:
+    problems.append(
+      "nested directories (add-ons must be flat): "
+      + ", ".join(str(path) for path in nested_dirs)
+    )
+  if non_markdown_files:
+    problems.append(
+      "non-markdown files: "
+      + ", ".join(str(path) for path in non_markdown_files)
+    )
   if orphans:
-    joined = ", ".join(str(path) for path in orphans)
+    problems.append(
+      "undeclared add-on files: "
+      + ", ".join(str(path) for path in orphans)
+    )
+
+  if problems:
+    joined = "; ".join(problems)
     raise OrphanAddonFileError(
-      f"Platform pack '{pack.slug}': the following add-on files exist under "
-      f"'{addons_dir}' but are not referenced by any 'declared_addons' entry: "
-      f"{joined}. Declare them in platform.yaml or remove the files."
+      f"Platform pack '{pack.slug}': drift detected under '{addons_dir}' — "
+      f"{joined}. Declare each file in platform.yaml's 'declared_addons', "
+      "remove it, or (for nested dirs) flatten the layout."
     )
 
 

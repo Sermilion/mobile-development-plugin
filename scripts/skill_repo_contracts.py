@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from functools import cache
 from pathlib import Path
+from typing import Any
 
 
 ORCHESTRATION_PLAYBOOKS: dict[str, str] = {
@@ -46,18 +48,35 @@ def compute_addon_supporting_file_targets(root: Path) -> dict[str, str]:
   return targets
 
 
-_ADDON_SUPPORTING_FILE_TARGETS = compute_addon_supporting_file_targets(
-  Path(__file__).resolve().parent.parent
-)
-
-SUPPORTING_FILE_TARGETS: dict[str, str] = {
+_BASE_SUPPORTING_FILE_TARGETS: dict[str, str] = {
   "stack-routing.md": ORCHESTRATION_PLAYBOOKS["stack-routing"],
   "review-orchestrator.md": ORCHESTRATION_PLAYBOOKS["review-orchestrator"],
   "review-delegation.md": ORCHESTRATION_PLAYBOOKS["review-delegation"],
   "telemetry-contract.md": ORCHESTRATION_PLAYBOOKS["telemetry-contract"],
   "shell-content-contract.md": ORCHESTRATION_PLAYBOOKS["shell-content-contract"],
-  **_ADDON_SUPPORTING_FILE_TARGETS,
 }
+
+
+@cache
+def _supporting_file_targets() -> dict[str, str]:
+  """Compute and cache the merged sidecar-target map (SKILL-17).
+
+  Governed add-on targets are discovered from each platform pack's
+  ``declared_addons``, which requires reading YAML. Defer that cost until
+  first access so consumers that only touch the non-add-on constants
+  above do not pay for it on plain ``import``.
+  """
+  root = Path(__file__).resolve().parent.parent
+  return {**_BASE_SUPPORTING_FILE_TARGETS, **compute_addon_supporting_file_targets(root)}
+
+
+def __getattr__(name: str) -> Any:
+  # Expose ``SUPPORTING_FILE_TARGETS`` as a lazily-computed module attribute
+  # so ``import skill_repo_contracts`` does not parse every platform.yaml
+  # until a caller actually reads the merged map.
+  if name == "SUPPORTING_FILE_TARGETS":
+    return _supporting_file_targets()
+  raise AttributeError(f"module 'skill_repo_contracts' has no attribute {name!r}")
 
 RUNTIME_SUPPORTING_FILES: dict[str, tuple[str, ...]] = {
   "bill-code-review": (
@@ -203,5 +222,5 @@ def governed_addon_slugs_for_stack(stack: str) -> tuple[str, ...]:
 def supporting_file_targets(root: Path) -> dict[str, Path]:
   return {
     file_name: root / relative_path
-    for file_name, relative_path in SUPPORTING_FILE_TARGETS.items()
+    for file_name, relative_path in _supporting_file_targets().items()
   }
