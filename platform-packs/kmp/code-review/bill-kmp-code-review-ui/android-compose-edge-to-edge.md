@@ -1,1 +1,1 @@
-../../../../skills/kmp/addons/android-compose-edge-to-edge.md
+../../addons/android-compose-edge-to-edge.md

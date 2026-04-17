@@ -137,42 +137,53 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       self.assertEqual(result.returncode, 0, result.stdout)
       self.assertIn("12 governed add-on files", result.stdout)
 
-  def test_accepts_governed_addon_files_with_future_expansion_names(self) -> None:
-    with self.fixture_repo([("base", "bill-code-review")]) as repo_root:
-      bare_addon = repo_root / "skills" / "kmp" / "addons" / "eloquent.md"
-      area_scoped_addon = repo_root / "skills" / "kmp" / "addons" / "eloquent-persistence.md"
-      bare_addon.write_text("# valid\n", encoding="utf-8")
-      area_scoped_addon.write_text("# valid\n", encoding="utf-8")
-      result = self.run_validator(repo_root)
-      self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn("14 governed add-on files", result.stdout)
+  def test_rejects_governed_addon_under_legacy_skills_path(self) -> None:
+    """SKILL-17: governed add-ons moved to platform-packs/<slug>/addons/.
 
-  def test_rejects_governed_addon_under_base_package(self) -> None:
+    The legacy ``skills/<stack>/addons/`` path is no longer a valid
+    storage location; seeding a file there must fail loudly with a
+    migration hint rather than silently accepting the drift.
+    """
     with self.fixture_repo([("base", "bill-feature-implement")]) as repo_root:
-      path = repo_root / "skills" / "base" / "addons" / "android-compose-review.md"
+      path = repo_root / "skills" / "kmp" / "addons" / "android-compose-review.md"
       path.parent.mkdir(parents=True, exist_ok=True)
       path.write_text("# invalid\n", encoding="utf-8")
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 1, result.stdout)
-      self.assertIn("governed add-ons must be stack-owned", result.stdout)
+      self.assertIn("moved to platform-packs/<slug>/", result.stdout)
 
   def test_rejects_governed_addon_with_invalid_filename_shape(self) -> None:
     with self.fixture_repo([("base", "bill-feature-implement")]) as repo_root:
-      path = repo_root / "skills" / "kmp" / "addons" / "android-compose-Notes.md"
+      # Add the stray invalid file under the governed pack's add-ons dir.
+      path = (
+        repo_root / "platform-packs" / "kmp" / "addons" / "android-compose-Notes.md"
+      )
       path.parent.mkdir(parents=True, exist_ok=True)
       path.write_text("# invalid\n", encoding="utf-8")
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 1, result.stdout)
-      self.assertIn("must use lowercase kebab-case", result.stdout)
+      # The orphan scan trips first because the file is not declared;
+      # that message is equally pointed and enforces the same rule.
+      self.assertIn("android-compose-Notes.md", result.stdout)
 
   def test_rejects_nested_governed_addon_path(self) -> None:
     with self.fixture_repo([("base", "bill-feature-implement")]) as repo_root:
-      path = repo_root / "skills" / "kmp" / "addons" / "android-compose" / "review.md"
+      path = (
+        repo_root
+        / "platform-packs"
+        / "kmp"
+        / "addons"
+        / "android-compose"
+        / "review.md"
+      )
       path.parent.mkdir(parents=True, exist_ok=True)
       path.write_text("# invalid\n", encoding="utf-8")
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 1, result.stdout)
-      self.assertIn("expected add-on path format skills/<package>/addons/<addon-file>.md", result.stdout)
+      self.assertIn(
+        "expected add-on path format platform-packs/<slug>/addons/<addon-file>.md",
+        result.stdout,
+      )
 
   def test_rejects_runtime_playbook_references(self) -> None:
     with self.fixture_repo(
@@ -357,7 +368,10 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       )
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 0, result.stdout)
-      self.assertIn("1 platform packs", result.stdout)
+      # Two packs: the ``fixture_pack`` seeded above plus the governed
+      # ``kmp`` pack that ``write_governed_addons`` seeds for every
+      # fixture repo after SKILL-17.
+      self.assertIn("2 platform packs", result.stdout)
 
   def test_rejects_platform_pack_with_contract_version_mismatch(self) -> None:
     with self.fixture_repo([("base", "bill-code-review")]) as repo_root:
@@ -690,8 +704,39 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     )
 
   def write_governed_addons(self, repo_root: Path) -> None:
-    implementation = repo_root / "skills" / "kmp" / "addons" / "android-compose-implementation.md"
-    implementation.parent.mkdir(parents=True, exist_ok=True)
+    """Seed a governed kmp pack with 12 add-on files plus a conforming manifest.
+
+    SKILL-17: add-ons now live under ``platform-packs/<slug>/addons/`` and
+    must be declared in the pack's ``platform.yaml`` under
+    ``declared_addons`` (required when ``governs_addons: true``).
+    """
+    import yaml
+
+    pack_dir = repo_root / "platform-packs" / "kmp"
+    addons_dir = pack_dir / "addons"
+    addons_dir.mkdir(parents=True, exist_ok=True)
+
+    # Seed a minimal code-review baseline so the pack manifest validates.
+    baseline_rel = "code-review/SKILL.md"
+    baseline_path = pack_dir / baseline_rel
+    baseline_path.parent.mkdir(parents=True, exist_ok=True)
+    sections = [
+      "Description",
+      "Specialist Scope",
+      "Inputs",
+      "Outputs Contract",
+      "Execution Mode Reporting",
+      "Telemetry Ceremony Hooks",
+    ]
+    body = [
+      "---\nname: kmp-code-review\ndescription: Fixture kmp baseline.\n---\n",
+      "# kmp baseline\n",
+    ]
+    for section in sections:
+      body.append(f"## {section}\nFixture {section.lower()}.\n")
+    baseline_path.write_text("\n".join(body), encoding="utf-8")
+
+    implementation = addons_dir / "android-compose-implementation.md"
     implementation.write_text(
       textwrap.dedent(
         """\
@@ -706,7 +751,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       ),
       encoding="utf-8",
     )
-    review = repo_root / "skills" / "kmp" / "addons" / "android-compose-review.md"
+    review = addons_dir / "android-compose-review.md"
     review.write_text(
       textwrap.dedent(
         """\
@@ -721,26 +766,66 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       ),
       encoding="utf-8",
     )
-    edge_to_edge = repo_root / "skills" / "kmp" / "addons" / "android-compose-edge-to-edge.md"
-    edge_to_edge.write_text("# Edge-to-edge\n", encoding="utf-8")
-    adaptive = repo_root / "skills" / "kmp" / "addons" / "android-compose-adaptive-layouts.md"
-    adaptive.write_text("# Adaptive layouts\n", encoding="utf-8")
-    navigation_impl = repo_root / "skills" / "kmp" / "addons" / "android-navigation-implementation.md"
-    navigation_impl.write_text("# Navigation implementation\n", encoding="utf-8")
-    navigation_review = repo_root / "skills" / "kmp" / "addons" / "android-navigation-review.md"
-    navigation_review.write_text("# Navigation review\n", encoding="utf-8")
-    interop_impl = repo_root / "skills" / "kmp" / "addons" / "android-interop-implementation.md"
-    interop_impl.write_text("# Interop implementation\n", encoding="utf-8")
-    interop_review = repo_root / "skills" / "kmp" / "addons" / "android-interop-review.md"
-    interop_review.write_text("# Interop review\n", encoding="utf-8")
-    design_impl = repo_root / "skills" / "kmp" / "addons" / "android-design-system-implementation.md"
-    design_impl.write_text("# Design system implementation\n", encoding="utf-8")
-    design_review = repo_root / "skills" / "kmp" / "addons" / "android-design-system-review.md"
-    design_review.write_text("# Design system review\n", encoding="utf-8")
-    r8_implementation = repo_root / "skills" / "kmp" / "addons" / "android-r8-implementation.md"
-    r8_implementation.write_text("# R8 implementation\n", encoding="utf-8")
-    r8_review = repo_root / "skills" / "kmp" / "addons" / "android-r8-review.md"
-    r8_review.write_text("# R8 review\n", encoding="utf-8")
+    (addons_dir / "android-compose-edge-to-edge.md").write_text("# Edge-to-edge\n", encoding="utf-8")
+    (addons_dir / "android-compose-adaptive-layouts.md").write_text("# Adaptive layouts\n", encoding="utf-8")
+    (addons_dir / "android-navigation-implementation.md").write_text("# Navigation implementation\n", encoding="utf-8")
+    (addons_dir / "android-navigation-review.md").write_text("# Navigation review\n", encoding="utf-8")
+    (addons_dir / "android-interop-implementation.md").write_text("# Interop implementation\n", encoding="utf-8")
+    (addons_dir / "android-interop-review.md").write_text("# Interop review\n", encoding="utf-8")
+    (addons_dir / "android-design-system-implementation.md").write_text("# Design system implementation\n", encoding="utf-8")
+    (addons_dir / "android-design-system-review.md").write_text("# Design system review\n", encoding="utf-8")
+    (addons_dir / "android-r8-implementation.md").write_text("# R8 implementation\n", encoding="utf-8")
+    (addons_dir / "android-r8-review.md").write_text("# R8 review\n", encoding="utf-8")
+
+    manifest = {
+      "platform": "kmp",
+      "contract_version": "1.0",
+      "governs_addons": True,
+      "routing_signals": {
+        "strong": [".kmp"],
+        "tie_breakers": [],
+        "addon_signals": [],
+      },
+      "declared_code_review_areas": [],
+      "declared_files": {
+        "baseline": baseline_rel,
+        "areas": {},
+      },
+      "declared_addons": [
+        {
+          "slug": "android-compose",
+          "implementation": "addons/android-compose-implementation.md",
+          "review": "addons/android-compose-review.md",
+          "topic_files": [
+            "addons/android-compose-edge-to-edge.md",
+            "addons/android-compose-adaptive-layouts.md",
+          ],
+        },
+        {
+          "slug": "android-navigation",
+          "implementation": "addons/android-navigation-implementation.md",
+          "review": "addons/android-navigation-review.md",
+        },
+        {
+          "slug": "android-interop",
+          "implementation": "addons/android-interop-implementation.md",
+          "review": "addons/android-interop-review.md",
+        },
+        {
+          "slug": "android-design-system",
+          "implementation": "addons/android-design-system-implementation.md",
+          "review": "addons/android-design-system-review.md",
+        },
+        {
+          "slug": "android-r8",
+          "implementation": "addons/android-r8-implementation.md",
+          "review": "addons/android-r8-review.md",
+        },
+      ],
+    }
+    (pack_dir / "platform.yaml").write_text(
+      yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8"
+    )
 
   def write_skill(
     self,

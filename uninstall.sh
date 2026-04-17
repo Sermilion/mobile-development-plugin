@@ -25,6 +25,9 @@ err()   { printf "${RED}✗${NC} %s\n" "$1"; }
 # skills/ AND platform-packs/, and the uninstaller removes
 # $agent_dir/<skill_name> symlinks by name — so relocations are discovered
 # automatically. Only use this array when the skill's canonical name changes.
+# SKILL-17: add-on files moved from skills/kmp/addons/ to
+# platform-packs/kmp/addons/. Add-ons are not installable skills, so the
+# uninstaller is a no-op for that relocation.
 declare -a RENAMED_SKILL_PAIRS=(
   'bill-module-history:bill-boundary-history'
   'bill-code-review-architecture:bill-kotlin-code-review-architecture'

@@ -15,45 +15,40 @@ ADDON_DIRECTORY_NAME = "addons"
 ADDON_IMPLEMENTATION_SUFFIX = "-implementation.md"
 ADDON_REVIEW_SUFFIX = "-review.md"
 ADDON_REPORTING_LINE = "Selected add-ons: none | <add-on slugs>"
-# TODO(SKILL-14 follow-up): migrate GOVERNED_STACK_ADDONS to discovery from
-# platform-packs/<slug>/platform.yaml (using the `governs_addons: true` flag
-# and the declared `addon_signals`). The SKILL-14 pilot intentionally scopes
-# add-on discovery out: AC9 (manifest-driven routing) covers **routing
-# playbooks and the validator**, and `GOVERNED_STACK_ADDONS` is an internal
-# implementation detail of add-on sidecar wiring. Promoting it to discovery
-# is mechanical but touches every skill sidecar graph, which is bigger than
-# this pilot. Tracking in SKILL-15.
-GOVERNED_STACK_ADDONS: dict[str, tuple[str, ...]] = {
-  "kmp": (
-    "android-compose",
-    "android-navigation",
-    "android-interop",
-    "android-design-system",
-    "android-r8",
-  ),
-}
-GOVERNED_ADDON_SUPPORT_FILES: dict[str, tuple[str, ...]] = {
-  "kmp": (
-    "android-compose-edge-to-edge.md",
-    "android-compose-adaptive-layouts.md",
-  ),
-}
 
-ADDON_SUPPORTING_FILE_TARGETS: dict[str, str] = {
-  f"{addon_slug}{ADDON_IMPLEMENTATION_SUFFIX}": f"skills/{stack}/addons/{addon_slug}{ADDON_IMPLEMENTATION_SUFFIX}"
-  for stack, addon_slugs in GOVERNED_STACK_ADDONS.items()
-  for addon_slug in addon_slugs
-}
-ADDON_SUPPORTING_FILE_TARGETS.update({
-  f"{addon_slug}{ADDON_REVIEW_SUFFIX}": f"skills/{stack}/addons/{addon_slug}{ADDON_REVIEW_SUFFIX}"
-  for stack, addon_slugs in GOVERNED_STACK_ADDONS.items()
-  for addon_slug in addon_slugs
-})
-ADDON_SUPPORTING_FILE_TARGETS.update({
-  file_name: f"skills/{stack}/addons/{file_name}"
-  for stack, file_names in GOVERNED_ADDON_SUPPORT_FILES.items()
-  for file_name in file_names
-})
+
+def compute_addon_supporting_file_targets(root: Path) -> dict[str, str]:
+  """Return the sidecar-target map for governed add-on files (SKILL-17).
+
+  Walks every ``platform-packs/<slug>/`` pack and flattens each
+  :class:`AddonDeclaration`'s implementation, review, and topic files
+  into a mapping from the file's basename to its repo-relative path. The
+  scaffolder and validator consume this map to wire sibling supporting
+  files without hardcoding platform names.
+  """
+  # Import lazily to avoid pulling PyYAML into entry points that only use
+  # the non-add-on constants above.
+  from skill_bill.shell_content_contract import discover_platform_packs
+
+  targets: dict[str, str] = {}
+  packs = discover_platform_packs(root / "platform-packs")
+  for pack in packs:
+    if not pack.governs_addons:
+      continue
+    for declaration in pack.declared_addons:
+      for file_path in (
+        declaration.implementation,
+        declaration.review,
+        *declaration.topic_files,
+      ):
+        relative = file_path.relative_to(root)
+        targets[file_path.name] = relative.as_posix()
+  return targets
+
+
+_ADDON_SUPPORTING_FILE_TARGETS = compute_addon_supporting_file_targets(
+  Path(__file__).resolve().parent.parent
+)
 
 SUPPORTING_FILE_TARGETS: dict[str, str] = {
   "stack-routing.md": ORCHESTRATION_PLAYBOOKS["stack-routing"],
@@ -61,7 +56,7 @@ SUPPORTING_FILE_TARGETS: dict[str, str] = {
   "review-delegation.md": ORCHESTRATION_PLAYBOOKS["review-delegation"],
   "telemetry-contract.md": ORCHESTRATION_PLAYBOOKS["telemetry-contract"],
   "shell-content-contract.md": ORCHESTRATION_PLAYBOOKS["shell-content-contract"],
-  **ADDON_SUPPORTING_FILE_TARGETS,
+  **_ADDON_SUPPORTING_FILE_TARGETS,
 }
 
 RUNTIME_SUPPORTING_FILES: dict[str, tuple[str, ...]] = {
@@ -184,7 +179,25 @@ def skills_requiring_supporting_file(file_name: str) -> tuple[str, ...]:
 
 
 def governed_addon_slugs_for_stack(stack: str) -> tuple[str, ...]:
-  return GOVERNED_STACK_ADDONS.get(stack, ())
+  """Return the declared add-on slugs for ``stack``, discovered from the manifest.
+
+  SKILL-17: discovery-driven. Walks ``platform-packs/<stack>/platform.yaml``
+  and returns the tuple of ``declared_addons[*].slug`` in manifest order
+  when the pack declares ``governs_addons: true``. Returns an empty tuple
+  when the pack directory is absent. A malformed manifest is NOT silently
+  tolerated — the underlying ``ShellContentContractError`` propagates so the
+  loud-fail discipline documented in ``AGENTS.md`` applies here too.
+  """
+  from skill_bill.shell_content_contract import load_platform_pack
+
+  root = Path(__file__).resolve().parent.parent
+  pack_root = root / "platform-packs" / stack
+  if not (pack_root / "platform.yaml").is_file():
+    return ()
+  pack = load_platform_pack(pack_root)
+  if not pack.governs_addons:
+    return ()
+  return tuple(declaration.slug for declaration in pack.declared_addons)
 
 
 def supporting_file_targets(root: Path) -> dict[str, Path]:

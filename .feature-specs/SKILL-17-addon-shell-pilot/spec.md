@@ -2,7 +2,7 @@
 issue_key: SKILL-17
 feature_name: addon-shell-pilot
 feature_size: MEDIUM
-status: Not Started
+status: In Progress
 created: 2026-04-17
 depends_on: SKILL-14 (shell+content contract — shipped), SKILL-16 (quality-check shell pilot — shipped)
 ---

@@ -99,7 +99,7 @@ A single `feature-implement` run chains 10-12 skill invocations:
 
 Small, low-risk review scopes may stay inline in one thread. Larger or higher-risk scopes use delegated review passes and report the chosen execution mode explicitly.
 
-After stack routing, a platform package may apply governed add-ons from `skills/<platform>/addons/`. These remain stack-owned metadata such as `Selected add-ons: android-compose, android-navigation, android-interop, android-design-system, android-r8` for KMP Android work. They are not extra slash commands and are not counted in the skill catalog.
+After stack routing, a platform package may apply governed add-ons from `platform-packs/<slug>/addons/`. These remain platform-owned metadata (declared under `declared_addons` in the pack's `platform.yaml`) such as `Selected add-ons: android-compose, android-navigation, android-interop, android-design-system, android-r8` for KMP Android work. They are not extra slash commands and are not counted in the skill catalog.
 
 The current `kmp` pilot uses:
 - `android-compose-implementation.md`
@@ -141,7 +141,7 @@ sKill Bill ships with reference packs under `platform-packs/<slug>/`. These are 
 - Deep platforms have multi-layer routing, governed add-ons for framework-specific guidance, and specialist areas that compose across packages.
 - Solid platforms have a full specialist roster but no governed add-ons or multi-layer routing. PHP and Go each cover 8 code-review areas — the gap is framework-specific depth (e.g., no Laravel add-ons for PHP, no Chi/Gin add-ons for Go).
 
-The PHP/Go gap is a visible backlog item, not a missing feature. Governed add-ons can be added under `skills/php/addons/` or `skills/go/addons/` when framework-specific guidance is needed.
+The PHP/Go gap is a visible backlog item, not a missing feature. Governed add-ons can be added under `platform-packs/php/addons/` or `platform-packs/go/addons/` when framework-specific guidance is needed (and requires flipping the owning pack's `governs_addons: true` plus declaring each entry under `declared_addons`).
 
 ## Review telemetry
 
@@ -183,7 +183,7 @@ The installer first asks which agent targets to install to. You can choose one o
 all
 ```
 
-It then shows the available **optional** platform packages and asks which ones to install. Base skills in `skills/base/` and the governed `agent-config` package are always installed; the remaining platform packages are installed only when selected. Governed add-ons under `skills/<platform>/addons/` ship with their owning platform package and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
+It then shows the available **optional** platform packages and asks which ones to install. Base skills in `skills/base/` and the governed `agent-config` package are always installed; the remaining platform packages are installed only when selected. Governed add-ons under `platform-packs/<slug>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
 
 Available options are shown as separate entries:
 
@@ -381,7 +381,7 @@ If you only remember four things, remember these:
 
 1. Users enter through stable skills in `skills/base/`.
 2. Platform depth lives in `skills/<platform>/`.
-3. Governed add-ons live under `skills/<platform>/addons/` and apply only after stack routing.
+3. Governed add-ons live under `platform-packs/<slug>/addons/`, declared in the owning pack's `platform.yaml` under `declared_addons`, and apply only after stack routing.
 4. Shared logic is documented in `orchestration/`, but runtimes consume it through sibling sidecars such as `stack-routing.md`, `review-orchestrator.md`, `review-delegation.md`, and `telemetry-contract.md`.
 5. Topology changes should start in `scripts/skill_repo_contracts.py`, then flow into skills, tests, and docs.
 

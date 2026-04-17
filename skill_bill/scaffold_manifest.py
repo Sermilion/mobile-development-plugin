@@ -161,7 +161,91 @@ def set_declared_quality_check_file(
     manifest_path.write_text(updated, encoding="utf-8")
 
 
+# Matches the start-of-line ``declared_addons:`` top-level list header plus
+# any nested indented body lines (dashes followed by key/value). We either
+# append under the existing header or emit a fresh block under
+# ``declared_files:``.
+_DECLARED_ADDONS_BLOCK_PATTERN = re.compile(
+  r"^(declared_addons:\s*\n)((?:(?:[ \t]+[^\n]*\n)|(?:\s*\n))*)",
+  re.MULTILINE,
+)
+
+
+def append_declared_addon(
+  *,
+  manifest_path: Path,
+  entry: dict,
+) -> None:
+  """Append a new ``declared_addons`` entry on a platform.yaml manifest.
+
+  Mirrors :func:`set_declared_quality_check_file` (SKILL-16) but for the
+  list-shaped ``declared_addons`` key introduced in SKILL-17. The edit is
+  additive and idempotent — appending the same slug twice raises so the
+  caller sees the duplicate rather than silently no-opping. When the
+  ``declared_addons:`` header is absent, we append a fresh block at the
+  end of the file.
+
+  Args:
+    manifest_path: absolute path to ``platform.yaml``.
+    entry: mapping with required ``slug``, ``implementation``, ``review``;
+      optional ``topic_files`` list of strings.
+
+  Raises:
+    ValueError: when ``entry`` is malformed, or when ``slug`` already
+      appears under ``declared_addons``.
+  """
+  slug = entry.get("slug")
+  implementation = entry.get("implementation")
+  review = entry.get("review")
+  topic_files = entry.get("topic_files") or []
+  if not isinstance(slug, str) or not slug:
+    raise ValueError("append_declared_addon requires a non-empty 'slug'.")
+  if not isinstance(implementation, str) or not implementation:
+    raise ValueError("append_declared_addon requires a non-empty 'implementation'.")
+  if not isinstance(review, str) or not review:
+    raise ValueError("append_declared_addon requires a non-empty 'review'.")
+  if not isinstance(topic_files, list):
+    raise ValueError("append_declared_addon expects 'topic_files' to be a list when provided.")
+
+  original_text = manifest_path.read_text(encoding="utf-8")
+
+  # Duplicate-slug guard: match ``- slug: <slug>`` under any indentation.
+  dup_pattern = re.compile(
+    rf"^[ \t]*-[ \t]+slug:[ \t]+{re.escape(slug)}\s*$",
+    re.MULTILINE,
+  )
+  if dup_pattern.search(original_text):
+    raise ValueError(
+      f"Manifest already declares an add-on with slug '{slug}'; duplicates are not allowed."
+    )
+
+  new_entry_lines = [
+    f"  - slug: {slug}",
+    f"    implementation: {implementation}",
+    f"    review: {review}",
+  ]
+  if topic_files:
+    new_entry_lines.append("    topic_files:")
+    for topic in topic_files:
+      new_entry_lines.append(f"      - {topic}")
+  new_entry_block = "\n".join(new_entry_lines) + "\n"
+
+  match = _DECLARED_ADDONS_BLOCK_PATTERN.search(original_text)
+  if match is not None:
+    insertion_point = match.end()
+    updated = original_text[:insertion_point] + new_entry_block + original_text[insertion_point:]
+  else:
+    # Append a fresh block. Ensure a trailing newline separates prior
+    # content and our new block.
+    prefix = original_text if original_text.endswith("\n") else original_text + "\n"
+    updated = prefix + "\ndeclared_addons:\n" + new_entry_block
+
+  if updated != original_text:
+    manifest_path.write_text(updated, encoding="utf-8")
+
+
 __all__ = [
   "append_code_review_area",
+  "append_declared_addon",
   "set_declared_quality_check_file",
 ]

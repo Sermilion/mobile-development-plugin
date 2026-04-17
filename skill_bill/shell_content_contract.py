@@ -127,6 +127,17 @@ class PyYAMLMissingError(ShellContentContractError):
   """
 
 
+class OrphanAddonFileError(ShellContentContractError):
+  """Raised when a governed pack ships an add-on file that no manifest entry declares.
+
+  Governed add-ons (SKILL-17) live at ``platform-packs/<slug>/addons/`` and
+  must be enumerated in the owning pack's ``declared_addons`` block. An
+  orphaned file is a silent contract drift: the file is installed but the
+  shell has no way to wire it, so the scanner raises this error rather than
+  letting the file rot quietly.
+  """
+
+
 @dataclass(frozen=True)
 class RoutingSignals:
   """Normalized routing signals for a platform pack."""
@@ -134,6 +145,25 @@ class RoutingSignals:
   strong: tuple[str, ...]
   tie_breakers: tuple[str, ...]
   addon_signals: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AddonDeclaration:
+  """A governed add-on declaration parsed from ``declared_addons``.
+
+  Add-on content files (SKILL-17) are pack-owned supporting assets that
+  the shell symlinks into specialist runtime directories. Each declaration
+  names the add-on slug plus the implementation and review content files
+  that the add-on contributes, and any optional topic files that support
+  the add-on. Paths are stored relative to the pack root; the orphan
+  scanner and the sidecar-target computation both walk these declarations
+  to decide which files are contract-honored.
+  """
+
+  slug: str
+  implementation: Path
+  review: Path
+  topic_files: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -154,6 +184,7 @@ class PlatformPack:
   display_name: str | None = None
   notes: str | None = None
   declared_quality_check_file: Path | None = None
+  declared_addons: tuple[AddonDeclaration, ...] = ()
 
   @property
   def routed_skill_name(self) -> str:
@@ -396,6 +427,13 @@ def _build_pack(
       f"Platform pack '{slug}': 'declared_quality_check_file' must be a non-empty path string when provided."
     )
 
+  declared_addons = _parse_declared_addons(
+    slug=slug,
+    pack_root=pack_root,
+    governs_addons=governs_addons_raw,
+    raw_value=raw.get("declared_addons"),
+  )
+
   return PlatformPack(
     slug=slug,
     pack_root=pack_root,
@@ -407,7 +445,121 @@ def _build_pack(
     display_name=display_name_raw,
     notes=notes_raw,
     declared_quality_check_file=declared_quality_check_path,
+    declared_addons=declared_addons,
   )
+
+
+_ADDON_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _parse_declared_addons(
+  *,
+  slug: str,
+  pack_root: Path,
+  governs_addons: bool,
+  raw_value: Any,
+) -> tuple[AddonDeclaration, ...]:
+  """Parse the optional ``declared_addons`` manifest key.
+
+  Enforces the governs_addons↔declared_addons cross-check in both
+  directions so an inconsistent manifest fails loudly at parse time rather
+  than silently half-wiring the runtime. Each entry must carry a slug
+  (matching ``[a-z0-9]+(?:-[a-z0-9]+)*``), a required ``implementation``
+  path, a required ``review`` path, and optional ``topic_files`` (list of
+  path strings). Duplicate slugs raise ``InvalidManifestSchemaError``. No
+  filesystem existence check happens here — ``load_addon_content`` enforces
+  that when the shell actually resolves an add-on.
+  """
+  if raw_value is None:
+    if governs_addons:
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'governs_addons: true' requires a non-empty "
+        "'declared_addons' list. Declare the governed add-ons or flip the flag to false."
+      )
+    return ()
+
+  if not isinstance(raw_value, list):
+    raise InvalidManifestSchemaError(
+      f"Platform pack '{slug}': 'declared_addons' must be a list of add-on entries."
+    )
+
+  if not governs_addons:
+    raise InvalidManifestSchemaError(
+      f"Platform pack '{slug}': 'declared_addons' is only valid when "
+      "'governs_addons: true'. Set governs_addons to true or remove declared_addons."
+    )
+
+  if len(raw_value) == 0:
+    raise InvalidManifestSchemaError(
+      f"Platform pack '{slug}': 'governs_addons: true' requires a non-empty "
+      "'declared_addons' list. Declare at least one add-on or flip the flag to false."
+    )
+
+  seen_slugs: set[str] = set()
+  declarations: list[AddonDeclaration] = []
+  for index, entry in enumerate(raw_value):
+    if not isinstance(entry, dict):
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons[{index}]' must be a mapping."
+      )
+    addon_slug = entry.get("slug")
+    if not isinstance(addon_slug, str) or not addon_slug:
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons[{index}].slug' must be a non-empty string."
+      )
+    if not _ADDON_SLUG_PATTERN.match(addon_slug):
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons[{index}].slug' "
+        f"'{addon_slug}' must be lowercase kebab-case ([a-z0-9]+(?:-[a-z0-9]+)*)."
+      )
+    if addon_slug in seen_slugs:
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons' contains duplicate slug "
+        f"'{addon_slug}'. Each add-on slug must be declared once."
+      )
+    seen_slugs.add(addon_slug)
+
+    implementation_raw = entry.get("implementation")
+    if not isinstance(implementation_raw, str) or not implementation_raw:
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons[{addon_slug}].implementation' "
+        "must be a non-empty path string."
+      )
+    review_raw = entry.get("review")
+    if not isinstance(review_raw, str) or not review_raw:
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons[{addon_slug}].review' "
+        "must be a non-empty path string."
+      )
+
+    topic_files_raw = entry.get("topic_files", [])
+    if topic_files_raw is None:
+      topic_files_raw = []
+    if not isinstance(topic_files_raw, list):
+      raise InvalidManifestSchemaError(
+        f"Platform pack '{slug}': 'declared_addons[{addon_slug}].topic_files' "
+        "must be a list of path strings when provided."
+      )
+    topic_files: list[Path] = []
+    for topic_index, topic_raw in enumerate(topic_files_raw):
+      if not isinstance(topic_raw, str) or not topic_raw:
+        raise InvalidManifestSchemaError(
+          f"Platform pack '{slug}': "
+          f"'declared_addons[{addon_slug}].topic_files[{topic_index}]' "
+          "must be a non-empty path string."
+        )
+      topic_files.append((pack_root / topic_raw).resolve())
+
+    declarations.append(
+      AddonDeclaration(
+        slug=addon_slug,
+        implementation=(pack_root / implementation_raw).resolve(),
+        review=(pack_root / review_raw).resolve(),
+        topic_files=tuple(topic_files),
+      )
+    )
+
+  return tuple(declarations)
 
 
 def _as_string_tuple(slug: str, value: Any, field_label: str) -> tuple[str, ...]:
@@ -484,6 +636,85 @@ def load_quality_check_content(pack: PlatformPack) -> Path:
   return file_path
 
 
+def load_addon_content(pack: PlatformPack, slug: str) -> AddonDeclaration:
+  """Return the resolved :class:`AddonDeclaration` for ``slug`` under ``pack``.
+
+  Loud-fail rules (SKILL-17):
+
+  - Raises :class:`InvalidManifestSchemaError` when ``slug`` is not present
+    in ``pack.declared_addons``. Callers must gate the call on the
+    manifest — there is no silent fallback.
+  - Raises :class:`MissingContentFileError` when the declaration's
+    implementation, review, or any declared topic file does not exist on
+    disk. Unlike code-review and quality-check content files, add-on
+    markdown does NOT enforce required H2 sections; add-ons are reference
+    material rather than skill-content.
+  """
+  matches = [entry for entry in pack.declared_addons if entry.slug == slug]
+  if not matches:
+    raise InvalidManifestSchemaError(
+      f"Platform pack '{pack.slug}': add-on slug '{slug}' is not declared in "
+      "'declared_addons'. Declare it in platform.yaml or fix the caller."
+    )
+  declaration = matches[0]
+  for label, file_path in (
+    ("implementation", declaration.implementation),
+    ("review", declaration.review),
+  ):
+    if not file_path.is_file():
+      raise MissingContentFileError(
+        f"Platform pack '{pack.slug}': add-on '{slug}' {label} file is missing "
+        f"at '{file_path}'."
+      )
+  for topic_file in declaration.topic_files:
+    if not topic_file.is_file():
+      raise MissingContentFileError(
+        f"Platform pack '{pack.slug}': add-on '{slug}' topic file is missing "
+        f"at '{topic_file}'."
+      )
+  return declaration
+
+
+def scan_orphan_addon_files(pack: PlatformPack) -> None:
+  """Raise :class:`OrphanAddonFileError` for unreferenced files under ``addons/``.
+
+  Walks ``<pack.pack_root>/addons/`` (flat) and flags any ``*.md`` file
+  that is not declared as an implementation path, a review path, or a
+  topic file in any :class:`AddonDeclaration`. Only runs for packs with
+  ``governs_addons: true`` — packs that do not govern add-ons carry no
+  expectation of an ``addons/`` directory.
+  """
+  if not pack.governs_addons:
+    return
+  addons_dir = pack.pack_root / "addons"
+  if not addons_dir.is_dir():
+    return
+
+  referenced: set[Path] = set()
+  for declaration in pack.declared_addons:
+    referenced.add(declaration.implementation)
+    referenced.add(declaration.review)
+    for topic_file in declaration.topic_files:
+      referenced.add(topic_file)
+
+  orphans: list[Path] = []
+  for candidate in sorted(addons_dir.iterdir()):
+    if not candidate.is_file():
+      continue
+    if candidate.suffix != ".md":
+      continue
+    if candidate.resolve() not in referenced:
+      orphans.append(candidate)
+
+  if orphans:
+    joined = ", ".join(str(path) for path in orphans)
+    raise OrphanAddonFileError(
+      f"Platform pack '{pack.slug}': the following add-on files exist under "
+      f"'{addons_dir}' but are not referenced by any 'declared_addons' entry: "
+      f"{joined}. Declare them in platform.yaml or remove the files."
+    )
+
+
 def _collect_top_level_h2_headings(text: str) -> set[str]:
   """Return the set of real H2 headings outside fenced code blocks.
 
@@ -506,12 +737,14 @@ def _collect_top_level_h2_headings(text: str) -> set[str]:
 
 
 __all__ = [
+  "AddonDeclaration",
   "APPROVED_CODE_REVIEW_AREAS",
   "ContractVersionMismatchError",
   "InvalidManifestSchemaError",
   "MissingContentFileError",
   "MissingManifestError",
   "MissingRequiredSectionError",
+  "OrphanAddonFileError",
   "PlatformPack",
   "PyYAMLMissingError",
   "REQUIRED_CONTENT_SECTIONS",
@@ -520,7 +753,9 @@ __all__ = [
   "SHELL_CONTRACT_VERSION",
   "ShellContentContractError",
   "discover_platform_packs",
+  "load_addon_content",
   "load_platform_pack",
   "load_quality_check_content",
+  "scan_orphan_addon_files",
   "validate_platform_pack",
 ]

@@ -8,7 +8,7 @@ skill-bill is a governed suite of AI-agent skills for code review, quality check
 
 - `skills/base/` — canonical, user-facing capabilities (both the `bill-code-review` shell and the `bill-quality-check` shell live here)
 - `skills/<platform>/` — platform-specific overrides for skills that have not been piloted onto the shell+content contract yet (today: `bill-feature-implement` and `bill-feature-verify`)
-- `skills/<platform>/addons/` — governed stack-owned add-on assets that apply only after stack routing
+- `platform-packs/<slug>/addons/` — governed platform-owned add-on assets declared under `declared_addons` in the owning pack's manifest; resolved only after stack routing
 - `platform-packs/<platform>/` — user-owned platform packs for `bill-code-review` and `bill-quality-check` (manifest plus per-area reviewer content and the optional `declared_quality_check_file`, discovered at runtime by each shell)
 - `orchestration/` — single source of truth for shared routing, review, delegation, telemetry, and shell+content contracts; skills consume these via sibling symlinks, so edits here change runtime behavior for every linked skill
 
@@ -22,7 +22,7 @@ skill-bill is a governed suite of AI-agent skills for code review, quality check
 ## Governed platform packs
 
 - Platform packs live under `platform-packs/<slug>/` and are user-owned — teams are expected to fork or extend them.
-- Every pack ships a platform.yaml manifest declaring platform, contract_version, routing_signals, declared_code_review_areas, and declared_files. Packs may also declare the optional `declared_quality_check_file` (a single path string) to register a per-platform quality-check content file. The manifest schema is owned by orchestration/shell-content-contract/PLAYBOOK.md.
+- Every pack ships a platform.yaml manifest declaring platform, contract_version, routing_signals, declared_code_review_areas, and declared_files. Packs may also declare the optional `declared_quality_check_file` (a single path string) to register a per-platform quality-check content file, and the optional `declared_addons` (list of add-on entries) when `governs_addons: true`. The manifest schema is owned by orchestration/shell-content-contract/PLAYBOOK.md.
 - The current shell contract version is 1.0. Packs that declare a different version fail loudly with a contract-version mismatch error; bump the shell constant and every pack together when the contract evolves. The `declared_quality_check_file` key is an additive v1.0 extension: omitting it is valid and packs without the key remain contract-compliant.
 - Every declared code-review content file must contain the six required H2 sections: Description, Specialist Scope, Inputs, Outputs Contract, Execution Mode Reporting, Telemetry Ceremony Hooks. Every declared quality-check content file must contain the five required H2 sections: Description, Execution Steps, Fix Strategy, Execution Mode Reporting, Telemetry Ceremony Hooks.
 - Loud-fail rules are authoritative: missing manifest, wrong version, missing content file, and missing required section all raise specific named exceptions. Never silently fall back.
@@ -31,9 +31,10 @@ skill-bill is a governed suite of AI-agent skills for code review, quality check
 
 ## Governed add-ons
 
-- Add-ons are stack-owned supporting assets, not standalone skills.
-- Store only under `skills/<platform>/addons/`, flat (no nested directories).
+- Add-ons are platform-owned supporting assets, not standalone skills.
+- Store only under `platform-packs/<slug>/addons/`, flat (no nested directories).
 - File names: `<addon-slug>.md` or `<addon-slug>-<area>.md` (lowercase kebab-case).
+- Declare every add-on in the owning pack's `platform.yaml` under `declared_addons`; packs with `governs_addons: true` MUST declare at least one entry.
 - Resolve add-ons only after dominant-stack routing selects the owning platform.
 - Runtime skills consume add-ons only through sibling supporting files, not repo-relative paths.
 - Report selected add-ons explicitly using `Selected add-ons: ...`.
@@ -43,7 +44,7 @@ skill-bill is a governed suite of AI-agent skills for code review, quality check
 
 - Add platform capabilities only as base-capability overrides or approved code-review-`<area>` specializations, declared in the owning pack's manifest.
 - Add a new platform pack under `platform-packs/<slug>/` only when behavior is materially different from existing packs.
-- Keep add-ons stack-owned under `skills/<platform>/addons/`; do not promote to top-level packages.
+- Keep add-ons pack-owned under `platform-packs/<slug>/addons/`; declare every file under `declared_addons` in the owning `platform.yaml`. Do not promote to top-level packages.
 - Use sibling supporting files for runtime-shared contracts instead of repo-relative paths.
 - Keep `orchestration/` contracts aligned with sibling supporting-file links.
 - Keep dominant-stack routing primary. Apply governed add-ons only after stack routing settles.
@@ -69,7 +70,7 @@ For remaining non-shelled platform skills (`feature-implement`, `feature-verify`
   - `platform-override-piloted` (shelled family `quality-check`) → `platform-packs/<slug>/quality-check/<name>/SKILL.md` + `platform.yaml` edit registering `declared_quality_check_file`.
   - `platform-override-piloted` (pre-shell families `feature-implement`, `feature-verify`) → `skills/<platform>/<name>/SKILL.md`, annotated with an interim-location note ("will move when piloted").
   - `code-review-area` → `platform-packs/<slug>/code-review/<name>/SKILL.md` + manifest area registration.
-  - `add-on` → `skills/<platform>/addons/<name>.md` (flat).
+  - `add-on` → `platform-packs/<slug>/addons/<name>.md` (flat) + `platform.yaml` edit appending to `declared_addons` (requires `governs_addons: true`).
 - Pre-shell families are defined in `skill_bill/constants.py::PRE_SHELL_FAMILIES`. Adding one requires updating that tuple and `skill_bill/scaffold.py::FAMILY_REGISTRY` in the same change.
 - Scaffolder entry point: `skill_bill/scaffold.py`. Payload schema and exception catalog: `orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md`.
 - The scaffolder is atomic. Validator failure, manifest-write failure, and symlink-creation failure all trigger a full rollback and raise a named exception; the repo tree is byte-identical to its pre-run state.

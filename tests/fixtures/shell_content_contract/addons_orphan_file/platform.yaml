@@ -1,0 +1,18 @@
+platform: addons_orphan_file
+contract_version: "1.0"
+display_name: Addons Orphan File Fixture
+governs_addons: true
+routing_signals:
+  strong:
+    - ".fixture"
+  tie_breakers:
+    - "Prefer this fixture when add-on markers dominate."
+  addon_signals: []
+declared_code_review_areas: []
+declared_files:
+  baseline: code-review/SKILL.md
+  areas: {}
+declared_addons:
+  - slug: declared-only-addon
+    implementation: addons/declared-only-addon-implementation.md
+    review: addons/declared-only-addon-review.md

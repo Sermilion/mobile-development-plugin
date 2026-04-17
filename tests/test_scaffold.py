@@ -89,6 +89,35 @@ declared_files:
 """
 
 
+_KMP_MANIFEST = """\
+platform: kmp
+contract_version: "1.0"
+display_name: KMP
+governs_addons: true
+
+routing_signals:
+  strong:
+    - "kotlin(\\"multiplatform\\")"
+  tie_breakers:
+    - "fallback tie-breaker"
+  addon_signals:
+    - "seed-addon"
+
+declared_code_review_areas:
+  - ui
+
+declared_files:
+  baseline: code-review/bill-kmp-code-review/SKILL.md
+  areas:
+    ui: code-review/bill-kmp-code-review-ui/SKILL.md
+
+declared_addons:
+  - slug: seed-addon
+    implementation: addons/seed-addon-implementation.md
+    review: addons/seed-addon-review.md
+"""
+
+
 def _seed_skill_file(path: Path) -> None:
   """Write a minimal six-section SKILL.md at ``path``."""
   path.parent.mkdir(parents=True, exist_ok=True)
@@ -120,7 +149,6 @@ def _build_seed_repo(tmp_path: Path) -> Path:
   # overrides like ``bill-php-feature-verify`` without tripping on missing
   # base capabilities.
   (repo / "skills" / "base" / "bill-feature-verify").mkdir(parents=True)
-  (repo / "skills" / "kmp" / "addons").mkdir(parents=True)
   (repo / "skills" / "php").mkdir(parents=True)
   pack_root = repo / "platform-packs" / "kotlin"
   pack_root.mkdir(parents=True)
@@ -128,6 +156,24 @@ def _build_seed_repo(tmp_path: Path) -> Path:
   _seed_skill_file(pack_root / "code-review" / "bill-kotlin-code-review" / "SKILL.md")
   _seed_skill_file(
     pack_root / "code-review" / "bill-kotlin-code-review-architecture" / "SKILL.md"
+  )
+  # SKILL-17: governed add-ons live inside the owning platform pack.
+  # Seed a minimal kmp pack manifest so the add-on scaffolder test can
+  # land its output under ``platform-packs/kmp/addons/`` and append to
+  # ``declared_addons``.
+  kmp_pack_root = repo / "platform-packs" / "kmp"
+  kmp_pack_root.mkdir(parents=True)
+  (kmp_pack_root / "platform.yaml").write_text(_KMP_MANIFEST, encoding="utf-8")
+  _seed_skill_file(kmp_pack_root / "code-review" / "bill-kmp-code-review" / "SKILL.md")
+  _seed_skill_file(
+    kmp_pack_root / "code-review" / "bill-kmp-code-review-ui" / "SKILL.md"
+  )
+  (kmp_pack_root / "addons").mkdir()
+  (kmp_pack_root / "addons" / "seed-addon-implementation.md").write_text(
+    "# Seed Addon Implementation\n", encoding="utf-8"
+  )
+  (kmp_pack_root / "addons" / "seed-addon-review.md").write_text(
+    "# Seed Addon Review\n", encoding="utf-8"
   )
   # No scripts/validate_agent_configs.py in the scratch repo; the scaffolder
   # skips the validator in that case. Tests that want to exercise validator
@@ -224,12 +270,62 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertNotIn("## Project Overrides", body)
 
   def test_add_on_flat(self) -> None:
+    """SKILL-17: add-ons land in ``platform-packs/<slug>/addons/`` and
+    register under ``declared_addons`` in the owning pack's manifest."""
     result = scaffold(
       self._payload(kind="add-on", name="android-new-addon", platform="kmp")
     )
     self.assertEqual(result.kind, "add-on")
-    addon_md = self.repo / "skills" / "kmp" / "addons" / "android-new-addon.md"
+    addon_md = (
+      self.repo / "platform-packs" / "kmp" / "addons" / "android-new-addon.md"
+    )
     self.assertTrue(addon_md.is_file())
+
+    manifest = (self.repo / "platform-packs" / "kmp" / "platform.yaml").read_text(
+      encoding="utf-8"
+    )
+    # The new add-on must have been appended to declared_addons.
+    self.assertIn("- slug: android-new-addon", manifest)
+    # The seed add-on must still be present (idempotent, non-destructive).
+    self.assertIn("- slug: seed-addon", manifest)
+
+  def test_add_on_rollback_on_manifest_write_failure(self) -> None:
+    """SKILL-17 mirror of the SKILL-16 quality-check rollback test.
+
+    When ``append_declared_addon`` raises partway through the manifest
+    edit, the scaffolder's rollback must leave the repo byte-identical:
+    the add-on .md file must be absent and the manifest bytes must match
+    the pre-run snapshot.
+    """
+    pre_snapshot = _snapshot_tree(self.repo)
+
+    def boom(**_kwargs: object) -> None:
+      raise OSError("simulated manifest write failure")
+
+    payload = self._payload(
+      kind="add-on",
+      name="android-rollback-addon",
+      platform="kmp",
+    )
+
+    with mock.patch.object(
+      scaffold_manifest_module,
+      "append_declared_addon",
+      side_effect=boom,
+    ):
+      with self.assertRaises((OSError, ScaffoldRollbackError)):
+        scaffold(payload)
+
+    post_snapshot = _snapshot_tree(self.repo)
+    self.assertEqual(pre_snapshot, post_snapshot)
+    addon_md = (
+      self.repo
+      / "platform-packs"
+      / "kmp"
+      / "addons"
+      / "android-rollback-addon.md"
+    )
+    self.assertFalse(addon_md.exists())
 
   def test_pre_shell_family_emits_interim_note(self) -> None:
     # SKILL-16 promoted quality-check onto the shell+content contract, so the

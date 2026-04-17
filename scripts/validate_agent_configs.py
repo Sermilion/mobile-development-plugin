@@ -15,12 +15,14 @@ from skill_bill.shell_content_contract import (  # noqa: E402
   SHELL_CONTRACT_VERSION,
   ShellContentContractError,
   discover_platform_packs,
+  load_addon_content,
   load_quality_check_content,
+  scan_orphan_addon_files,
 )
 
 from skill_repo_contracts import (  # noqa: E402
-  ADDON_SUPPORTING_FILE_TARGETS,
   ADDON_DIRECTORY_NAME,
+  SUPPORTING_FILE_TARGETS,
   APPLIED_LEARNINGS_PLACEHOLDER,
   CHILD_METADATA_HANDOFF_RULE,
   CHILD_NO_IMPORT_RULE,
@@ -233,8 +235,42 @@ def validate_platform_packs(root: Path, issues: list[str]) -> list[str]:
         issues.append(f"platform-packs/{entry.name}: {error}")
         continue
 
+    # SKILL-17: when a pack governs add-ons, every declared slug must
+    # resolve (each file exists) and no orphaned .md files may exist
+    # under the pack's addons/ directory. Both checks surface named
+    # exceptions verbatim — no platform enumeration.
+    if pack.governs_addons:
+      addon_failure = False
+      for declaration in pack.declared_addons:
+        try:
+          load_addon_content(pack, declaration.slug)
+        except ShellContentContractError as error:
+          issues.append(f"platform-packs/{entry.name}: {error}")
+          addon_failure = True
+          break
+      if addon_failure:
+        continue
+      try:
+        scan_orphan_addon_files(pack)
+      except ShellContentContractError as error:
+        issues.append(f"platform-packs/{entry.name}: {error}")
+        continue
+
     slugs.append(pack.slug)
   return slugs
+
+
+def _is_governed_addon_file(file_name: str) -> bool:
+  """Return True when ``file_name`` is declared by any governed pack's add-on.
+
+  Consumes the merged ``SUPPORTING_FILE_TARGETS`` map (SKILL-17) instead
+  of an enumerated set, so adding a new governed pack does not require
+  editing this validator.
+  """
+  target = SUPPORTING_FILE_TARGETS.get(file_name)
+  if not target:
+    return False
+  return target.startswith("platform-packs/") and "/addons/" in target
 
 
 def resolve_root() -> Path:
@@ -326,14 +362,36 @@ def validate_platform_pack_skill_file(skill_name: str, skill_file: Path, issues:
 
 
 def discover_addon_files(root: Path) -> list[Path]:
+  """Return every governed add-on file found under the repo (SKILL-17).
+
+  Add-ons now live at ``platform-packs/<slug>/addons/`` (pack-owned); the
+  validator walks that tree to enumerate every ``*.md`` file the loader
+  is expected to cross-reference against each pack's ``declared_addons``.
+  Legacy files under ``skills/<stack>/addons/`` are flagged as orphans
+  because they are no longer a valid storage location.
+  """
+  discovered: list[Path] = []
+  packs_dir = root / "platform-packs"
+  if packs_dir.is_dir():
+    for pack_dir in sorted(packs_dir.iterdir()):
+      if not pack_dir.is_dir() or pack_dir.name.startswith("."):
+        continue
+      addons_dir = pack_dir / ADDON_DIRECTORY_NAME
+      if not addons_dir.is_dir():
+        continue
+      for path in sorted(addons_dir.rglob("*.md")):
+        discovered.append(path)
+
+  # Legacy path — any add-on under ``skills/<stack>/addons/`` is a drift
+  # signal after SKILL-17. We still enumerate so ``validate_addon_file``
+  # can raise a pointed rejection instead of silently accepting.
   skills_dir = root / "skills"
-  if not skills_dir.is_dir():
-    return []
-  return sorted(
-    path
-    for path in skills_dir.rglob("*.md")
-    if ADDON_DIRECTORY_NAME in path.relative_to(skills_dir).parts
-  )
+  if skills_dir.is_dir():
+    for path in sorted(skills_dir.rglob("*.md")):
+      if ADDON_DIRECTORY_NAME in path.relative_to(skills_dir).parts:
+        discovered.append(path)
+
+  return discovered
 
 
 ORCHESTRATOR_SKILLS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -455,10 +513,11 @@ def validate_runtime_supporting_files(
 
   for file_name in required_files:
     supporting_file = skill_file.parent / file_name
-    if (
-      skill_name == "bill-feature-implement"
-      and file_name in ADDON_SUPPORTING_FILE_TARGETS
-    ):
+    # Add-on supporting files are discovered from platform-pack manifests
+    # (SKILL-17). When the file is one of the governed add-on sidecars, the
+    # feature-implement router may reference the group verbally instead of
+    # enumerating every file name.
+    if skill_name == "bill-feature-implement" and _is_governed_addon_file(file_name):
       if file_name not in text and "matching stack-owned add-on supporting files" not in text:
         issues.append(
           f"{skill_file}: must reference local supporting file '{file_name}' or describe stack-owned add-on support-file selection"
@@ -586,31 +645,76 @@ def require_markdown_heading(text: str, heading: str, message: str, issues: list
 
 
 def validate_addon_file(addon_file: Path, root: Path, issues: list[str]) -> None:
+  """Enforce path-shape rules for every governed add-on file (SKILL-17).
+
+  The canonical storage path is
+  ``platform-packs/<slug>/addons/<addon-file>.md`` (pack-owned, flat).
+  Any add-on file discovered under the legacy ``skills/<stack>/addons/``
+  tree is rejected with a pointed migration message.
+  """
   skills_dir = root / "skills"
-  relative_path = addon_file.relative_to(skills_dir)
+  packs_dir = root / "platform-packs"
+
+  # Legacy/deprecated storage path — flag loudly.
+  if skills_dir.is_dir() and addon_file.is_relative_to(skills_dir):
+    relative_path = addon_file.relative_to(skills_dir)
+    parts = relative_path.parts
+
+    if len(parts) != 3:
+      issues.append(
+        f"{addon_file}: expected add-on path format platform-packs/<slug>/{ADDON_DIRECTORY_NAME}/<addon-file>.md, "
+        f"got skills/{relative_path}"
+      )
+      return
+
+    package_name, directory_name, _ = parts
+    if directory_name != ADDON_DIRECTORY_NAME:
+      issues.append(
+        f"{addon_file}: governed add-ons must live under platform-packs/<slug>/{ADDON_DIRECTORY_NAME}/"
+      )
+      return
+
+    if package_name == "base":
+      issues.append(
+        f"{addon_file}: governed add-ons must be platform-owned, not placed under skills/base/"
+      )
+      return
+
+    # Any other legacy skills/<stack>/addons/ path is also invalid now.
+    issues.append(
+      f"{addon_file}: governed add-ons moved to platform-packs/<slug>/{ADDON_DIRECTORY_NAME}/ in SKILL-17; "
+      "migrate this file and declare it under 'declared_addons' in the owning pack's platform.yaml."
+    )
+    return
+
+  # Canonical SKILL-17 storage path: platform-packs/<slug>/addons/<file>.md
+  if not (packs_dir.is_dir() and addon_file.is_relative_to(packs_dir)):
+    issues.append(
+      f"{addon_file}: unexpected governed add-on location; expected "
+      f"platform-packs/<slug>/{ADDON_DIRECTORY_NAME}/<addon-file>.md"
+    )
+    return
+
+  relative_path = addon_file.relative_to(packs_dir)
   parts = relative_path.parts
 
   if len(parts) != 3:
     issues.append(
-      f"{addon_file}: expected add-on path format skills/<package>/{ADDON_DIRECTORY_NAME}/<addon-file>.md, "
-      f"got skills/{relative_path}"
+      f"{addon_file}: expected add-on path format platform-packs/<slug>/{ADDON_DIRECTORY_NAME}/<addon-file>.md, "
+      f"got platform-packs/{relative_path}"
     )
     return
 
-  package_name, directory_name, file_name = parts
+  pack_slug, directory_name, file_name = parts
   if directory_name != ADDON_DIRECTORY_NAME:
     issues.append(
-      f"{addon_file}: governed add-ons must live under skills/<package>/{ADDON_DIRECTORY_NAME}/"
+      f"{addon_file}: governed add-ons must live under platform-packs/<slug>/{ADDON_DIRECTORY_NAME}/"
     )
     return
 
-  if package_name == "base":
-    issues.append(f"{addon_file}: governed add-ons must be stack-owned, not placed under skills/base/")
-    return
-
-  if package_name not in ALLOWED_PACKAGES:
+  if pack_slug not in ALLOWED_PACKAGES:
     issues.append(
-      f"{addon_file}: add-on package '{package_name}' is not allowed; use one of "
+      f"{addon_file}: add-on pack '{pack_slug}' is not allowed; use one of "
       f"{', '.join(package for package in ALLOWED_PACKAGES if package != 'base')}"
     )
     return

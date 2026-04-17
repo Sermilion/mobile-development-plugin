@@ -37,8 +37,10 @@ Every payload MUST include:
     `platform-packs/<slug>/code-review/<name>/SKILL.md` plus additions to
     `declared_code_review_areas` and `declared_files.areas` in the owning
     `platform.yaml`.
-  - `"add-on"` — placed at `skills/<platform>/addons/<name>.md` (flat; no
-    sub-directory).
+  - `"add-on"` — placed at `platform-packs/<slug>/addons/<name>.md` (flat;
+    no sub-directory) and registered under the pack manifest's
+    `declared_addons` list. Requires an existing pack with
+    `governs_addons: true`.
 - `name` — the canonical `bill-...` slug for the new skill.
 
 ## Conditionally Required Keys
@@ -130,6 +132,12 @@ The scaffolded skill links the sibling sidecars `stack-routing.md` and
   "platform": "kmp"
 }
 ```
+
+This lands the add-on file at
+`platform-packs/kmp/addons/android-paging.md` and appends a new entry to the
+pack's `declared_addons` list in `platform-packs/kmp/platform.yaml`. The
+pack must already declare `governs_addons: true`; the scaffolder refuses
+to flip the flag on your behalf.
 
 ## Loud-Fail Exception Catalog
 

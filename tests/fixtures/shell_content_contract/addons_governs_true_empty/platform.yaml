@@ -1,0 +1,14 @@
+platform: addons_governs_true_empty
+contract_version: "1.0"
+display_name: Addons Governs True Empty Fixture
+governs_addons: true
+routing_signals:
+  strong:
+    - ".fixture"
+  tie_breakers:
+    - "Prefer this fixture when add-on markers dominate."
+  addon_signals: []
+declared_code_review_areas: []
+declared_files:
+  baseline: code-review/SKILL.md
+  areas: {}

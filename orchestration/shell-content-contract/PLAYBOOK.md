@@ -60,8 +60,8 @@ Required top-level fields:
   - `areas` — object mapping each entry of `declared_code_review_areas` to
     its content file path.
 - `governs_addons` — optional boolean. Packs that own governed add-ons must
-  set this to `true`. Defaults to `false` when omitted. (Used by internal
-  tooling; does not affect the shell's loud-fail behavior.)
+  set this to `true`. Defaults to `false` when omitted. When `true`, the
+  pack MUST declare at least one entry under `declared_addons` (see below).
 
 Optional top-level fields:
 
@@ -75,6 +75,29 @@ Optional top-level fields:
   contract-compliant. Today the `kmp` and `backend-kotlin` packs intentionally
   omit the key; the `bill-quality-check` shell falls back to the `kotlin`
   pack for those two slugs.
+- `declared_addons` — list of governed add-on entries, relative to the
+  platform pack root. SKILL-17 made add-ons pack-owned: they live under
+  `platform-packs/<slug>/addons/` and are wired into specialist runtime
+  directories via sibling symlinks. This key is only valid (and is
+  required) when `governs_addons: true`. The key is additive and
+  forward-compatible; the shell contract version stays `1.0`.
+
+  Each entry is a mapping with:
+
+  - `slug` — required lowercase kebab-case string matching
+    `^[a-z0-9]+(?:-[a-z0-9]+)*$`. Duplicate slugs are rejected.
+  - `implementation` — required path string to the add-on's implementation
+    file, relative to the pack root (for example,
+    `addons/android-compose-implementation.md`).
+  - `review` — required path string to the add-on's review file, relative
+    to the pack root (for example, `addons/android-compose-review.md`).
+  - `topic_files` — optional list of path strings to topic files that
+    support the add-on (for example, deep-dive notes on a subtopic).
+    Defaults to an empty list when omitted.
+
+  Add-on markdown files do NOT enforce any required H2 section set; they
+  are reference material, not skill content. The loader asserts only that
+  each declared file exists on disk.
 
 ## Required Content Files
 
@@ -162,6 +185,48 @@ must gate the call on `pack.declared_quality_check_file is not None`. The
 shell never silently substitutes a different pack's quality-check file
 except via the explicit `kmp`/`backend-kotlin` → `kotlin` fallback noted
 above.
+
+### Loud-Fail Rules (governed add-ons)
+
+The governed add-on loader (`skill_bill.shell_content_contract.load_addon_content`)
+enforces the following loud-fail rules on `declared_addons` entries
+(SKILL-17):
+
+- `governs_addons: true` with missing or empty `declared_addons` →
+  `InvalidManifestSchemaError`.
+- `declared_addons` present without `governs_addons: true` →
+  `InvalidManifestSchemaError`.
+- A malformed entry (missing `slug`, missing `implementation`, missing
+  `review`, non-list `topic_files`, slug that does not match the kebab-case
+  pattern) → `InvalidManifestSchemaError`.
+- Duplicate `slug` across `declared_addons` entries →
+  `InvalidManifestSchemaError`.
+- A file referenced by `implementation`, `review`, or any declared
+  `topic_files` entry does not exist on disk → `MissingContentFileError`.
+- A file exists under `platform-packs/<slug>/addons/` but is not
+  referenced by any `declared_addons` entry → `OrphanAddonFileError`
+  (raised by `scan_orphan_addon_files`).
+- Calling `load_addon_content(pack, slug)` with a slug that is not declared
+  on the pack → `InvalidManifestSchemaError`.
+
+Add-on markdown files do NOT enforce required H2 sections — the add-on
+loader never reads the file body.
+
+#### Worked example
+
+```yaml
+governs_addons: true
+declared_addons:
+  - slug: android-compose
+    implementation: addons/android-compose-implementation.md
+    review: addons/android-compose-review.md
+    topic_files:
+      - addons/android-compose-edge-to-edge.md
+      - addons/android-compose-adaptive-layouts.md
+  - slug: android-navigation
+    implementation: addons/android-navigation-implementation.md
+    review: addons/android-navigation-review.md
+```
 
 ## Discovery Semantics
 

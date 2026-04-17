@@ -1,0 +1,21 @@
+platform: addons_valid
+contract_version: "1.0"
+display_name: Addons Valid Fixture
+governs_addons: true
+routing_signals:
+  strong:
+    - ".fixture"
+  tie_breakers:
+    - "Prefer addons_valid fixture when add-on markers dominate."
+  addon_signals:
+    - "fixture-addon"
+declared_code_review_areas: []
+declared_files:
+  baseline: code-review/SKILL.md
+  areas: {}
+declared_addons:
+  - slug: fixture-addon
+    implementation: addons/fixture-addon-implementation.md
+    review: addons/fixture-addon-review.md
+    topic_files:
+      - addons/fixture-addon-topic.md

@@ -33,3 +33,23 @@ declared_files:
   areas:
     ui: code-review/bill-kmp-code-review-ui/SKILL.md
     ux-accessibility: code-review/bill-kmp-code-review-ux-accessibility/SKILL.md
+
+declared_addons:
+  - slug: android-compose
+    implementation: addons/android-compose-implementation.md
+    review: addons/android-compose-review.md
+    topic_files:
+      - addons/android-compose-edge-to-edge.md
+      - addons/android-compose-adaptive-layouts.md
+  - slug: android-navigation
+    implementation: addons/android-navigation-implementation.md
+    review: addons/android-navigation-review.md
+  - slug: android-interop
+    implementation: addons/android-interop-implementation.md
+    review: addons/android-interop-review.md
+  - slug: android-design-system
+    implementation: addons/android-design-system-implementation.md
+    review: addons/android-design-system-review.md
+  - slug: android-r8
+    implementation: addons/android-r8-implementation.md
+    review: addons/android-r8-review.md

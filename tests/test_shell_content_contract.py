@@ -19,16 +19,20 @@ sys.path.insert(0, str(ROOT))
 
 from skill_bill import shell_content_contract  # noqa: E402
 from skill_bill.shell_content_contract import (  # noqa: E402
+  AddonDeclaration,
   ContractVersionMismatchError,
   InvalidManifestSchemaError,
   MissingContentFileError,
   MissingManifestError,
   MissingRequiredSectionError,
+  OrphanAddonFileError,
   PlatformPack,
   PyYAMLMissingError,
   SHELL_CONTRACT_VERSION,
+  load_addon_content,
   load_platform_pack,
   load_quality_check_content,
+  scan_orphan_addon_files,
 )
 
 
@@ -190,6 +194,97 @@ class QualityCheckContentContractTest(unittest.TestCase):
     with self.assertRaises(MissingContentFileError) as context:
       load_quality_check_content(pack)
     self.assertIn("valid_pack", str(context.exception))
+
+
+class AddonContentContractTest(unittest.TestCase):
+  """SKILL-17: declared_addons + load_addon_content + orphan scan coverage."""
+
+  maxDiff = None
+
+  def test_loads_valid_addons_pack(self) -> None:
+    pack = load_platform_pack(FIXTURES_ROOT / "addons_valid")
+    self.assertTrue(pack.governs_addons)
+    self.assertEqual(len(pack.declared_addons), 1)
+    declaration = pack.declared_addons[0]
+    self.assertIsInstance(declaration, AddonDeclaration)
+    self.assertEqual(declaration.slug, "fixture-addon")
+    self.assertTrue(declaration.implementation.is_file())
+    self.assertTrue(declaration.review.is_file())
+    self.assertEqual(len(declaration.topic_files), 1)
+
+    loaded = load_addon_content(pack, "fixture-addon")
+    self.assertEqual(loaded, declaration)
+    # No orphan files → orphan scan is a no-op.
+    scan_orphan_addon_files(pack)
+
+  def test_rejects_addons_missing_file(self) -> None:
+    pack = load_platform_pack(FIXTURES_ROOT / "addons_missing_file")
+    with self.assertRaises(MissingContentFileError) as context:
+      load_addon_content(pack, "missing-file-addon")
+    message = str(context.exception)
+    self.assertIn("addons_missing_file", message)
+    self.assertIn("missing-file-addon-review.md", message)
+
+  def test_rejects_addons_governs_true_empty(self) -> None:
+    with self.assertRaises(InvalidManifestSchemaError) as context:
+      load_platform_pack(FIXTURES_ROOT / "addons_governs_true_empty")
+    message = str(context.exception)
+    self.assertIn("addons_governs_true_empty", message)
+    self.assertIn("governs_addons", message)
+    self.assertIn("declared_addons", message)
+
+  def test_rejects_addons_governs_false_with_declared(self) -> None:
+    with self.assertRaises(InvalidManifestSchemaError) as context:
+      load_platform_pack(FIXTURES_ROOT / "addons_governs_false_declared")
+    message = str(context.exception)
+    self.assertIn("addons_governs_false_declared", message)
+    self.assertIn("declared_addons", message)
+    self.assertIn("governs_addons", message)
+
+  def test_rejects_addons_slug_only(self) -> None:
+    with self.assertRaises(InvalidManifestSchemaError) as context:
+      load_platform_pack(FIXTURES_ROOT / "addons_slug_only")
+    message = str(context.exception)
+    self.assertIn("addons_slug_only", message)
+    self.assertIn("implementation", message)
+
+  def test_rejects_addons_duplicate_slug(self) -> None:
+    with self.assertRaises(InvalidManifestSchemaError) as context:
+      load_platform_pack(FIXTURES_ROOT / "addons_duplicate_slug")
+    message = str(context.exception)
+    self.assertIn("addons_duplicate_slug", message)
+    self.assertIn("duplicate", message)
+    self.assertIn("dup-addon", message)
+
+  def test_rejects_addons_orphan_file(self) -> None:
+    pack = load_platform_pack(FIXTURES_ROOT / "addons_orphan_file")
+    with self.assertRaises(OrphanAddonFileError) as context:
+      scan_orphan_addon_files(pack)
+    message = str(context.exception)
+    self.assertIn("addons_orphan_file", message)
+    self.assertIn("orphan-wanderer.md", message)
+
+  def test_load_addon_content_rejects_unknown_slug(self) -> None:
+    pack = load_platform_pack(FIXTURES_ROOT / "addons_valid")
+    with self.assertRaises(InvalidManifestSchemaError) as context:
+      load_addon_content(pack, "does-not-exist")
+    self.assertIn("does-not-exist", str(context.exception))
+
+  def test_valid_pack_declared_quality_check_still_works(self) -> None:
+    """Regression: the declared_quality_check_file flow stays unaffected.
+
+    This guards against any accidental coupling between the add-on loader
+    and the quality-check loader — both optional contract extensions must
+    remain independently usable.
+    """
+    pack = load_platform_pack(FIXTURES_ROOT / "quality_check_only")
+    self.assertIsNotNone(pack.declared_quality_check_file)
+    resolved = load_quality_check_content(pack)
+    self.assertTrue(resolved.is_file())
+    # quality_check_only fixture does not govern add-ons and does not
+    # declare any.
+    self.assertFalse(pack.governs_addons)
+    self.assertEqual(pack.declared_addons, ())
 
 
 if __name__ == "__main__":

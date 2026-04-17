@@ -333,7 +333,18 @@ def _plan_add_on(payload: dict, repo_root: Path) -> dict[str, Any]:
   name = _require_string(payload, "name")
   platform = _require_string(payload, "platform")
 
-  addons_root = repo_root / "skills" / platform / "addons"
+  # SKILL-17: governed add-ons live inside the owning platform pack at
+  # ``platform-packs/<slug>/addons/`` and are registered in the pack's
+  # ``declared_addons`` manifest key. The scaffolder refuses to create the
+  # pack as a side effect; the caller must author a conforming pack first.
+  pack_root = repo_root / "platform-packs" / platform
+  if not (pack_root / "platform.yaml").is_file():
+    raise MissingPlatformPackError(
+      f"Platform pack '{platform}' does not exist at '{pack_root}'. "
+      "Create a conforming platform.yaml (with governs_addons: true) before "
+      "adding an add-on into it."
+    )
+  addons_root = pack_root / "addons"
   skill_file = addons_root / f"{name}.md"
   return {
     "kind": SKILL_KIND_ADD_ON,
@@ -475,6 +486,32 @@ def _apply_manifest_edits(txn: _ScaffoldTransaction, plan: dict[str, Any], repo_
       manifest_path=manifest_path,
       relative_content_path=declared_path,
     )
+    return [manifest_path]
+
+  if plan["kind"] == SKILL_KIND_ADD_ON:
+    # SKILL-17: governed add-ons land in the owning pack's addons/ flat
+    # directory and must register under declared_addons in the pack
+    # manifest. The scaffolder uses the add-on slug ``name`` as-is; the
+    # pack author can add implementation/review/topic_files paths later.
+    # We register a minimal entry — a single file under addons/<name>.md
+    # is treated as the implementation file and a placeholder review
+    # filename is suggested by the caller via the payload when available.
+    from skill_bill.scaffold_manifest import append_declared_addon
+
+    manifest_path = repo_root / "platform-packs" / plan["platform"] / "platform.yaml"
+    _snapshot_manifest(txn, manifest_path)
+
+    entry_payload = plan.get("addon_entry")
+    if not entry_payload:
+      relative = plan["skill_file"].relative_to(
+        repo_root / "platform-packs" / plan["platform"]
+      ).as_posix()
+      entry_payload = {
+        "slug": plan["skill_name"],
+        "implementation": relative,
+        "review": relative,
+      }
+    append_declared_addon(manifest_path=manifest_path, entry=entry_payload)
     return [manifest_path]
 
   return []
