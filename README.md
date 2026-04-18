@@ -182,7 +182,7 @@ The installer first asks which agent targets to install to. You can choose one o
 all
 ```
 
-It then shows the available built-in reference packs and asks which ones to install. Base skills in `skills/base/` are always installed; the optional pack choices in this repo are `kotlin` and `kmp`. Governed add-ons under `platform-packs/<platform>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
+It then shows the available built-in reference packs and asks which ones to install. Canonical skills in `skills/` are always installed; the optional pack choices in this repo are `kotlin` and `kmp`. Governed add-ons under `platform-packs/<platform>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
 
 Available options are shown as separate entries:
 
@@ -309,14 +309,14 @@ Example:
 
 The repo is organized around a strict four-layer model:
 
-- `skills/base/` — canonical, user-facing capabilities such as `bill-code-review` (a governed shell), `bill-quality-check` (also a governed shell), and `bill-feature-implement`
+- `skills/` — canonical, user-facing capabilities such as `bill-code-review` (a governed shell), `bill-quality-check` (also a governed shell), and `bill-feature-implement`
 - `skills/<platform>/` — platform-specific overrides for skills that have not been piloted onto the shell+content contract yet (today: `bill-feature-implement` and `bill-feature-verify` only; code-review and quality-check are shelled)
 - `platform-packs/<platform>/` — user-owned platform packs consumed by the `bill-code-review` shell via the shell+content contract. Each pack ships a `platform.yaml` manifest plus per-area reviewer content
 - `orchestration/` — single source of truth for shared routing, review, delegation, telemetry, and shell+content contracts
 
 Think of it as markdown with inheritance:
 
-- base skills define the stable contracts
+- canonical skills define the stable contracts
 - platform skills specialize them
 - orchestration files are the canonical shared contracts for routing, review, delegation, and telemetry; skills link to them via sibling symlinks, so changes propagate to every linked skill immediately
 
@@ -324,7 +324,7 @@ Think of it as markdown with inheritance:
 
 If you only remember four things, remember these:
 
-1. Users enter through stable skills in `skills/base/`.
+1. Users enter through stable skills in `skills/`.
 2. Platform depth lives in `skills/<platform>/`.
 3. Governed add-ons live under `platform-packs/<platform>/addons/` and apply only after stack routing.
 4. Shared logic is documented in `orchestration/`, but runtimes consume it through sibling sidecars such as `stack-routing.md`, `review-orchestrator.md`, `review-delegation.md`, and `telemetry-contract.md`.
@@ -347,7 +347,7 @@ Other stacks belong in separately authored or forked platform packs created with
 
 Naming is intentionally strict:
 
-- base skills may use any neutral `bill-<capability>` name
+- canonical skills may use any neutral `bill-<capability>` name
 - platform overrides must use `bill-<platform>-<base-capability>`
 - deeper specialization is only allowed for code review:
   - `bill-<platform>-code-review-<area>`
@@ -415,7 +415,7 @@ The scaffolder is atomic: it creates files, edits manifests with best-effort com
 
 Manual path (discouraged — prefer the scaffolder):
 
-1. create `skills/<package>/<skill-name>/SKILL.md`
+1. create `skills/<skill-name>/SKILL.md` for canonical skills, or `skills/<package>/<skill-name>/SKILL.md` for pre-shell platform overrides
 2. follow the naming rules above
 3. run `./install.sh`
 4. update docs and validation if you intentionally add a new package or naming shape

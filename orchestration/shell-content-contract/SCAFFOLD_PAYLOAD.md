@@ -28,7 +28,7 @@ Every payload MUST include:
 - `scaffold_payload_version` — exact match for the scaffolder's expected
   version string.
 - `kind` — one of:
-  - `"horizontal"` — placed under `skills/base/<name>/SKILL.md`.
+  - `"horizontal"` — placed under `skills/<name>/SKILL.md`.
   - `"platform-override-piloted"` — placed under
     `platform-packs/<slug>/<family>/<name>/SKILL.md` plus a manifest edit
     for shelled families. Pre-shell families are placed under

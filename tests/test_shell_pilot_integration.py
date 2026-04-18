@@ -100,7 +100,7 @@ class ShellPilotIntegrationTest(unittest.TestCase):
   # --- Shell is platform-independent (AC 1, 2, 3) -----------------------
 
   def test_shell_declares_contract_and_sidecar(self) -> None:
-    shell_path = ROOT / "skills" / "base" / "bill-code-review" / "SKILL.md"
+    shell_path = ROOT / "skills" / "bill-code-review" / "SKILL.md"
     text = shell_path.read_text(encoding="utf-8")
     # The shell references the shell+content contract sidecar.
     self.assertIn("[shell-content-contract.md](shell-content-contract.md)", text)
@@ -115,7 +115,7 @@ class ShellPilotIntegrationTest(unittest.TestCase):
       )
 
   def test_shell_content_contract_sidecar_symlink_exists(self) -> None:
-    sidecar = ROOT / "skills" / "base" / "bill-code-review" / "shell-content-contract.md"
+    sidecar = ROOT / "skills" / "bill-code-review" / "shell-content-contract.md"
     self.assertTrue(sidecar.exists())
     self.assertTrue(sidecar.is_symlink())
 
@@ -187,7 +187,7 @@ class ShellPilotIntegrationTest(unittest.TestCase):
         re.compile(r"current shell contract version is \*\*`([^`]+)`\*\*"),
       ),
       (
-        "skills/base/bill-code-review/SKILL.md",
+        "skills/bill-code-review/SKILL.md",
         re.compile(r"shell contract version \*\*`([^`]+)`\*\*"),
       ),
     )
@@ -217,10 +217,10 @@ class ShellPilotIntegrationTest(unittest.TestCase):
 
   # --- Horizontal skills untouched (AC 14) -------------------------------
 
-  def test_horizontal_skills_remain_unmodified_in_skills_base(self) -> None:
+  def test_horizontal_skills_remain_unmodified_in_skills_root(self) -> None:
     for skill in HORIZONTAL_SKILLS:
       with self.subTest(skill=skill):
-        skill_path = ROOT / "skills" / "base" / skill / "SKILL.md"
+        skill_path = ROOT / "skills" / skill / "SKILL.md"
         self.assertTrue(skill_path.is_file(), f"{skill} went missing")
 
 

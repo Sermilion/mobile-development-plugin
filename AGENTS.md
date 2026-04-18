@@ -6,7 +6,7 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
 
 ## Core taxonomy
 
-- `skills/base/` holds canonical user-facing skills, including the `bill-code-review` and `bill-quality-check` shells.
+- `skills/` holds canonical user-facing skills, including the `bill-code-review` and `bill-quality-check` shells.
 - `skills/<platform>/` holds pre-shell platform overrides such as `bill-feature-implement` and `bill-feature-verify`.
 - `platform-packs/<platform>/addons/` holds pack-owned add-ons applied after routing.
 - `platform-packs/<platform>/` holds user-owned packs for code review and quality-check behavior.
@@ -56,7 +56,7 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
 
 - Use the scaffolder for all new skills: `skill-bill new-skill --payload <file>`, `--interactive`, or `/bill-skill-scaffold`.
 - Supported `kind` values:
-  - `horizontal`: create a base skill under `skills/base/`.
+  - `horizontal`: create a canonical skill under `skills/`.
   - `platform-override-piloted`: create the skill in the selected pack, updating its manifest; for `quality-check`, register `declared_quality_check_file`.
   - `platform-override-piloted` for pre-shell families: create the skill in the platform's legacy `skills/` location and note that it will move when piloted.
   - `code-review-area`: create the specialist in the selected pack and register the area.

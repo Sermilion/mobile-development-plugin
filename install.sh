@@ -338,7 +338,7 @@ build_platform_packages() {
   local package
 
   while IFS= read -r package; do
-    [[ "$package" == "base" ]] && continue
+    [[ "$package" == "base" || "$package" == bill-* ]] && continue
     discovered+=("$package")
   done < <(find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort)
 
@@ -587,16 +587,23 @@ build_skill_names() {
 
 resolve_package_name_for_skill_path() {
   # Map a skill directory to its owning package name.
+  # - skills/<skill>/SKILL.md                               -> base
   # - skills/<pkg>/<skill>/SKILL.md                         -> <pkg>
   # - platform-packs/<slug>/code-review/<skill>/SKILL.md    -> <slug>
   # - platform-packs/<slug>/quality-check/<skill>/SKILL.md  -> <slug>
   # Falls back to the immediate parent directory name for any other shape.
   local skill_dir="$1"
-  local parent parent_parent parent_name grand
+  local parent parent_parent parent_name grand skill_name
   parent="$(dirname "$skill_dir")"
   parent_parent="$(dirname "$parent")"
   parent_name="$(basename "$parent")"
   grand="$(basename "$parent_parent")"
+  skill_name="$(basename "$skill_dir")"
+
+  if [[ "$parent" == "$SKILLS_DIR" && "$skill_name" == bill-* ]]; then
+    printf 'base'
+    return 0
+  fi
 
   if [[ ( "$parent_name" == "code-review" || "$parent_name" == "quality-check" ) && -d "$parent_parent" ]]; then
     # platform-packs/<slug>/{code-review,quality-check}/<skill>

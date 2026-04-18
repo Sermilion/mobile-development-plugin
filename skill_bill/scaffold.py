@@ -13,7 +13,7 @@ exception — callers never see a partially materialized skill.
 
 Layout kinds supported today:
 
-- ``horizontal`` — ``skills/base/<name>/SKILL.md``
+- ``horizontal`` — ``skills/<name>/SKILL.md``
 - ``platform-override-piloted`` — ``platform-packs/<slug>/<family>/<name>/SKILL.md``
   plus a manifest edit in ``platform-packs/<slug>/platform.yaml``
 - ``platform-pack`` — ``platform-packs/<slug>/`` pack root with a generated
@@ -407,7 +407,7 @@ def _resolve_repo_root(payload: dict) -> Path:
 
 def _plan_horizontal(payload: dict, repo_root: Path) -> dict[str, Any]:
   name = _require_string(payload, "name")
-  skill_path = repo_root / "skills" / "base" / name
+  skill_path = repo_root / "skills" / name
   return {
     "kind": SKILL_KIND_HORIZONTAL,
     "skill_name": name,

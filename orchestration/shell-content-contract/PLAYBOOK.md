@@ -6,7 +6,7 @@ description: Versioned schema contract between the governed code-review shell an
 # Shared Shell Content Contract
 
 This is the canonical shell+content contract. The governed code-review shell
-(`skills/base/bill-code-review/SKILL.md`) owns ceremony, orchestration, output
+(`skills/bill-code-review/SKILL.md`) owns ceremony, orchestration, output
 structure, telemetry, and contract enforcement. Platform packs under
 `platform-packs/<platform>/` own reviewer reasoning. This file specifies the
 boundary between the two.

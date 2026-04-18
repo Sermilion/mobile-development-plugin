@@ -1,3 +1,11 @@
+## [2026-04-18] flatten-canonical-skills-out-of-skills-base
+Areas: skills/, scripts/, skill_bill/, README.md, AGENTS.md, docs/, tests/
+- Moved canonical user-facing skills out of `skills/base/` and into `skills/<bill-skill>/`, leaving `skills/<platform>/...` only for legacy pre-shell platform overrides. reusable
+- Updated installer and validator topology rules so root-level `skills/bill-*` directories are treated as the canonical/base set, while `skills/base/...` now counts as a legacy-invalid layout instead of a second supported home. reusable
+- Retargeted moved skill sidecars, changed the scaffolder `horizontal` destination to `skills/<name>/`, and refreshed docs/tests so path assertions, fixture repos, and shell-contract references all match the flattened layout. reusable
+Feature flag: N/A
+Acceptance criteria: 4/4 implemented
+
 ## [2026-04-18] move-governed-addons-into-platform-packs
 Areas: platform-packs/kmp/addons, scripts/, skill_bill/, README.md, AGENTS.md, tests/
 - Moved governed KMP add-ons from `skills/kmp/addons/` into `platform-packs/kmp/addons/` so pack-owned runtime content now lives entirely under the owning platform pack instead of being split across `skills/` and `platform-packs/`. reusable

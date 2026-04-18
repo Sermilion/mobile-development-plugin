@@ -38,10 +38,10 @@ def read(relative_path: str) -> str:
   return (ROOT / relative_path).read_text(encoding="utf-8")
 
 
-FEATURE_IMPLEMENT = read("skills/base/bill-feature-implement/SKILL.md") + "\n" + read("skills/base/bill-feature-implement/reference.md")
-CODE_REVIEW = read("skills/base/bill-code-review/SKILL.md")
-QUALITY_CHECK = read("skills/base/bill-quality-check/SKILL.md")
-PR_DESCRIPTION = read("skills/base/bill-pr-description/SKILL.md")
+FEATURE_IMPLEMENT = read("skills/bill-feature-implement/SKILL.md") + "\n" + read("skills/bill-feature-implement/reference.md")
+CODE_REVIEW = read("skills/bill-code-review/SKILL.md")
+QUALITY_CHECK = read("skills/bill-quality-check/SKILL.md")
+PR_DESCRIPTION = read("skills/bill-pr-description/SKILL.md")
 KOTLIN_CODE_REVIEW = read("platform-packs/kotlin/code-review/bill-kotlin-code-review/SKILL.md")
 KMP_CODE_REVIEW = read("platform-packs/kmp/code-review/bill-kmp-code-review/SKILL.md")
 KMP_ANDROID_COMPOSE_EDGE_TO_EDGE = read("platform-packs/kmp/addons/android-compose-edge-to-edge.md")

@@ -25,11 +25,16 @@ def skill_names(package_name: str) -> set[str]:
   accurate.
   """
   names: set[str] = set()
-  skills_package = SKILLS_DIR / package_name
-  if skills_package.is_dir():
+  if package_name == "base":
     names.update(
-      skill_file.parent.name for skill_file in skills_package.glob("*/SKILL.md")
+      skill_file.parent.name for skill_file in SKILLS_DIR.glob("bill-*/SKILL.md")
     )
+  else:
+    skills_package = SKILLS_DIR / package_name
+    if skills_package.is_dir():
+      names.update(
+        skill_file.parent.name for skill_file in skills_package.glob("*/SKILL.md")
+      )
   packs_package = PLATFORM_PACKS_DIR / package_name
   if packs_package.is_dir():
     names.update(
@@ -67,7 +72,7 @@ class InstallScriptTest(unittest.TestCase):
       ):
         path = Path(temp_home) / relative_path
         self.assertTrue(path.is_symlink(), relative_path)
-        self.assertEqual(path.resolve(), ROOT / "skills" / "base" / "bill-code-review")
+        self.assertEqual(path.resolve(), ROOT / "skills" / "bill-code-review")
 
   def test_installs_base_and_selected_platform_only(self) -> None:
     with tempfile.TemporaryDirectory() as temp_home:
@@ -178,14 +183,14 @@ class InstallScriptTest(unittest.TestCase):
       installed_skill = Path(temp_home) / ".copilot" / "skills" / "bill-code-review"
       self.assertTrue(installed_skill.is_symlink())
       installed_skill.unlink()
-      shutil.copytree(ROOT / "skills" / "base" / "bill-code-review", installed_skill, symlinks=False)
+      shutil.copytree(ROOT / "skills" / "bill-code-review", installed_skill, symlinks=False)
       (installed_skill / "stack-routing.md").write_text("stale sidecar", encoding="utf-8")
 
       second = self.run_installer(temp_home, "copilot\nKotlin\n")
       self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
 
       self.assertTrue(installed_skill.is_symlink())
-      self.assertEqual(installed_skill.resolve(), ROOT / "skills" / "base" / "bill-code-review")
+      self.assertEqual(installed_skill.resolve(), ROOT / "skills" / "bill-code-review")
       self.assertTrue((installed_skill / "stack-routing.md").exists())
 
   def test_install_removes_legacy_backend_kotlin_aliases(self) -> None:

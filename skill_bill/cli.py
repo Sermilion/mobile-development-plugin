@@ -470,7 +470,7 @@ def new_skill_command(args: argparse.Namespace) -> int:
 def _prompt_new_skill_interactively() -> dict:
   """Collect the interactive payload without an LLM.
 
-  Mirrors the decision tree in ``skills/base/bill-skill-scaffold/SKILL.md``
+  Mirrors the decision tree in ``skills/bill-skill-scaffold/SKILL.md``
   so operators can bypass the LLM wrapper when they know exactly what they
   want to create.
   """

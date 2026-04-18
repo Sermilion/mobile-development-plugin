@@ -22,7 +22,7 @@ All filesystem work happens in `skill_bill/scaffold.py`; this skill never edits 
 Ask the user enough to pick exactly one of the five kinds:
 
 1. **horizontal** — capability works across stacks (e.g. `bill-pr-description`).
-   - Destination: `skills/base/<name>/SKILL.md`.
+   - Destination: `skills/<name>/SKILL.md`.
 2. **platform-override-piloted** — a platform-specific variant of an existing base family.
    - Shelled families (`code-review`, `quality-check`) → destination: `platform-packs/<slug>/<family>/<name>/SKILL.md`.
    - Pre-shell families (`feature-implement`, `feature-verify`) → destination: `skills/<platform>/<name>/SKILL.md`; the scaffolder emits an interim-location note saying "will move when piloted."

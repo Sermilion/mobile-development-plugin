@@ -285,7 +285,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
 
   def test_accepts_orchestrator_skill_with_orchestrated_passthrough(self) -> None:
     with self.fixture_repo([("base", "bill-feature-implement")]) as repo_root:
-      skill_md = repo_root / "skills" / "base" / "bill-feature-implement" / "SKILL.md"
+      skill_md = repo_root / "skills" / "bill-feature-implement" / "SKILL.md"
       skill_md.write_text(
         skill_md.read_text(encoding="utf-8")
         + "\n\nWhen invoking child MCP tools, pass `orchestrated=true` to every call.\n",
@@ -778,13 +778,19 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     *,
     content: str | None = None,
   ) -> None:
-    path = repo_root / "skills" / package_name / skill_name / "SKILL.md"
+    if package_name == "base":
+      path = repo_root / "skills" / skill_name / "SKILL.md"
+    else:
+      path = repo_root / "skills" / package_name / skill_name / "SKILL.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content or self.skill_markdown(skill_name), encoding="utf-8")
 
   def write_supporting_files(self, repo_root: Path, package_name: str, skill_name: str) -> None:
     targets = supporting_file_targets(repo_root)
-    skill_dir = repo_root / "skills" / package_name / skill_name
+    if package_name == "base":
+      skill_dir = repo_root / "skills" / skill_name
+    else:
+      skill_dir = repo_root / "skills" / package_name / skill_name
     for file_name in required_supporting_files_for_skill(skill_name):
       (skill_dir / file_name).symlink_to(targets[file_name])
 

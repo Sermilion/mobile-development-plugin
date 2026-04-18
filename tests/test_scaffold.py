@@ -137,12 +137,12 @@ def _build_seed_repo(tmp_path: Path) -> Path:
   the main tree for correctness.
   """
   repo = tmp_path / "repo"
-  (repo / "skills" / "base").mkdir(parents=True)
+  (repo / "skills").mkdir(parents=True)
   # Seed a minimal base capability directory so the repo-level validator
   # (``validate_platform_skill_name``) can resolve pre-shell platform
   # overrides like ``bill-php-feature-verify`` without tripping on missing
   # base capabilities.
-  (repo / "skills" / "base" / "bill-feature-verify").mkdir(parents=True)
+  (repo / "skills" / "bill-feature-verify").mkdir(parents=True)
   (repo / "skills" / "php").mkdir(parents=True)
   kotlin_pack_root = repo / "platform-packs" / "kotlin"
   kotlin_pack_root.mkdir(parents=True)
@@ -208,7 +208,7 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
   def test_horizontal(self) -> None:
     result = scaffold(self._payload(kind="horizontal", name="bill-horizontal-new"))
     self.assertEqual(result.kind, "horizontal")
-    skill_md = self.repo / "skills" / "base" / "bill-horizontal-new" / "SKILL.md"
+    skill_md = self.repo / "skills" / "bill-horizontal-new" / "SKILL.md"
     self.assertTrue(skill_md.is_file())
     body = skill_md.read_text(encoding="utf-8")
     self.assertIn("## Description", body)
@@ -464,9 +464,7 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     validator binary, to keep the test hermetic.
     """
     scaffold(self._payload(kind="horizontal", name="bill-horizontal-real-validate"))
-    skill_md = (
-      self.repo / "skills" / "base" / "bill-horizontal-real-validate" / "SKILL.md"
-    )
+    skill_md = self.repo / "skills" / "bill-horizontal-real-validate" / "SKILL.md"
 
     validate_skill_file = _load_validate_skill_file()
     issues: list[str] = []
@@ -650,7 +648,7 @@ class ScaffoldRollbackTest(unittest.TestCase):
     post_snapshot = _snapshot_tree(self.repo)
     self.assertEqual(pre_snapshot, post_snapshot)
     # The skill directory should also be gone after rollback.
-    self.assertFalse((self.repo / "skills" / "base" / skill_name).exists())
+    self.assertFalse((self.repo / "skills" / skill_name).exists())
 
   def test_rollback_on_symlink_creation_failure(self) -> None:
     pre_snapshot = _snapshot_tree(self.repo)
@@ -717,7 +715,7 @@ class ScaffoldRollbackTest(unittest.TestCase):
 
     post_snapshot = _snapshot_tree(self.repo)
     self.assertEqual(pre_snapshot, post_snapshot)
-    self.assertFalse((self.repo / "skills" / "base" / skill_name).exists())
+    self.assertFalse((self.repo / "skills" / skill_name).exists())
 
 
 class ScaffolderOwnedSectionsIdenticalTest(unittest.TestCase):

@@ -54,8 +54,9 @@ SKILL_OVERRIDE_FILE = ".agents/skill-overrides.md"
 SKILL_OVERRIDE_EXAMPLE_FILE = ".agents/skill-overrides.example.md"
 SKILL_OVERRIDE_TITLE = "# Skill Overrides"
 SKILL_OVERRIDE_SECTION_PATTERN = re.compile(r"^## (bill-[a-z0-9-]+)$")
-# ALLOWED_PACKAGES is discovery-driven: "base" plus every non-hidden package
-# directory that already exists under ``skills/`` or ``platform-packs/``.
+# ALLOWED_PACKAGES is discovery-driven: the virtual ``base`` package plus every
+# non-hidden platform/package directory that already exists under ``skills/`` or
+# ``platform-packs/``.
 # Newly scaffolded pre-shell stacks live only under ``skills/<platform>/...``
 # until they are piloted, so the validator must not require a matching
 # ``platform-packs/<platform>/`` root for them.
@@ -65,10 +66,11 @@ _ROOT_DIR = Path(__file__).resolve().parent.parent
 def _discover_allowed_packages(root: Path) -> tuple[str, ...]:
   """Compute the set of package directory names the validator recognizes.
 
-  The rule: "base" is always allowed; every other package name is a live
-  top-level directory under ``skills/`` or ``platform-packs/``. This keeps
-  validation aligned with the scaffolded filesystem layout and avoids
-  hard-coded legacy package lists.
+  The rule: ``base`` is always allowed as the virtual package for canonical
+  root-level skills under ``skills/bill-...``. Every other package name is a
+  live top-level platform directory under ``skills/`` or ``platform-packs/``.
+  This keeps validation aligned with the scaffolded filesystem layout and
+  avoids hard-coded legacy package lists.
   """
   discovered: set[str] = {"base"}
   for container_name in ("skills", "platform-packs"):
@@ -76,7 +78,11 @@ def _discover_allowed_packages(root: Path) -> tuple[str, ...]:
     if not container.is_dir():
       continue
     for entry in container.iterdir():
-      if not entry.is_dir() or entry.name.startswith("."):
+      if (
+        not entry.is_dir()
+        or entry.name.startswith(".")
+        or (container_name == "skills" and entry.name.startswith("bill-"))
+      ):
         continue
       discovered.add(entry.name)
   return tuple(sorted(discovered))
@@ -345,8 +351,8 @@ def discover_addon_files(root: Path) -> list[Path]:
 
 ORCHESTRATOR_SKILLS: tuple[tuple[str, tuple[str, ...]], ...] = (
   # (skill_dir, files_to_scan_relative_to_skill_dir)
-  ("skills/base/bill-feature-implement", ("SKILL.md", "reference.md")),
-  ("skills/base/bill-feature-verify", ("SKILL.md",)),
+  ("skills/bill-feature-implement", ("SKILL.md", "reference.md")),
+  ("skills/bill-feature-verify", ("SKILL.md",)),
 )
 ORCHESTRATED_PASS_THROUGH_MARKER = "orchestrated=true"
 
@@ -650,18 +656,33 @@ def validate_addon_file(addon_file: Path, root: Path, issues: list[str]) -> None
 
 
 def validate_skill_location(skill_name: str, skill_file: Path, issues: list[str]) -> None:
-  skills_dir = skill_file.parents[2]
+  skills_dir = next((parent for parent in skill_file.parents if parent.name == "skills"), None)
+  if skills_dir is None:
+    issues.append(f"{skill_file}: could not resolve owning skills/ directory")
+    return
   allowed_packages = _discover_allowed_packages(skills_dir.parent)
   relative_path = skill_file.relative_to(skills_dir)
   parts = relative_path.parts
 
-  if len(parts) != 3:
+  package_name = ""
+  directory_name = ""
+  file_name = ""
+  if len(parts) == 2:
+    directory_name, file_name = parts
+    package_name = "base"
+  elif len(parts) == 3:
+    package_name, directory_name, file_name = parts
+    if package_name == "base":
+      issues.append(
+        f"{skill_file}: canonical skills must live directly under skills/<skill>/SKILL.md, not skills/base/{directory_name}/SKILL.md"
+      )
+      return
+  else:
     issues.append(
-      f"{skill_file}: expected path format skills/<package>/<skill>/SKILL.md, got skills/{relative_path}"
+      f"{skill_file}: expected path format skills/<skill>/SKILL.md or skills/<package>/<skill>/SKILL.md, got skills/{relative_path}"
     )
     return
 
-  package_name, directory_name, file_name = parts
   if file_name != "SKILL.md":
     issues.append(f"{skill_file}: expected skill file to be named SKILL.md")
 
@@ -741,14 +762,16 @@ def validate_platform_skill_name(
 
 
 def base_capabilities_for_skills_dir(skills_dir: Path) -> set[str]:
-  base_dir = skills_dir / "base"
-  if not base_dir.is_dir():
-    return set()
-
   capabilities: set[str] = set()
-  for skill_dir in base_dir.iterdir():
+  for skill_dir in skills_dir.iterdir():
     if skill_dir.is_dir() and skill_dir.name.startswith("bill-"):
       capabilities.add(skill_dir.name.removeprefix("bill-"))
+
+  legacy_base_dir = skills_dir / "base"
+  if legacy_base_dir.is_dir():
+    for skill_dir in legacy_base_dir.iterdir():
+      if skill_dir.is_dir() and skill_dir.name.startswith("bill-"):
+        capabilities.add(skill_dir.name.removeprefix("bill-"))
   return capabilities
 
 
