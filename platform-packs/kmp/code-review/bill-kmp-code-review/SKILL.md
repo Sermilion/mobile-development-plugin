@@ -65,7 +65,7 @@ Classify the review as one of:
 
 - If the shared stack-routing playbook indicates Android/KMP signals are strong, keep the Android/KMP route.
 - If Android/KMP signals are weak or absent, delegate to `bill-kotlin-code-review` and stop instead of pretending mobile-specific coverage exists.
-- If backend/server files are also touched, choose `bill-backend-kotlin-code-review` as the baseline review layer so backend coverage is preserved before this skill adds mobile-specific specialists.
+- If backend/server files are also touched, keep the `kmp` route and use `bill-kotlin-code-review` as the baseline layer so shared Kotlin concerns are still reviewed before this skill adds mobile-specific specialists.
 - When uncertain, prefer the safer route that preserves Android/KMP review depth.
 
 ## Governed Add-On Resolution
@@ -99,12 +99,11 @@ Select `inline` or `delegated` using [review-orchestrator.md](review-orchestrato
 ### Step 2: Choose and run the baseline Kotlin-family review
 
 Use the same scope to run exactly one baseline review layer:
-- Use `bill-backend-kotlin-code-review` when backend/server files or markers are meaningfully in scope
-- Otherwise use `bill-kotlin-code-review`
+- Use `bill-kotlin-code-review`
 
 That baseline review layer owns:
 - shared Kotlin architecture, correctness, security, performance, and testing review
-- backend/server specialist selection when backend signals are present
+- backend/server risk coverage within the Kotlin specialist set when backend signals are present
 - the baseline Kotlin findings that every Android/KMP review should inherit
 
 When invoking the baseline review in either execution mode:

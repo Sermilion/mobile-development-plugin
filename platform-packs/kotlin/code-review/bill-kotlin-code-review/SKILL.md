@@ -1,6 +1,6 @@
 ---
 name: bill-kotlin-code-review
-description: Use when conducting a thorough Kotlin PR code review across shared or generic Kotlin code, or when providing the baseline Kotlin review layer for Android/KMP and backend/server reviews. Select shared Kotlin specialists for architecture, correctness, security, performance, and testing. Produces a structured review with risk register and prioritized action items. Use when user mentions Kotlin review, review Kotlin PR, Kotlin code review, or asks to review .kt files.
+description: Use when conducting a thorough Kotlin PR code review across shared, backend/server, or generic Kotlin code, or when providing the baseline Kotlin review layer for Android/KMP reviews. Select shared Kotlin specialists for architecture, correctness, security, performance, and testing. Produces a structured review with risk register and prioritized action items. Use when user mentions Kotlin review, review Kotlin PR, Kotlin code review, or asks to review .kt files.
 ---
 
 # Adaptive Kotlin PR Review
@@ -50,7 +50,6 @@ Before delegating specialist review passes, read only your current runtime's sec
 Classify the review as one of:
 - `kotlin`
 - `kmp-baseline`
-- `backend-kotlin-baseline`
 
 ### Additional Backend/Server Signals
 
@@ -64,9 +63,8 @@ Classify the review as one of:
 ### Decision Rules
 
 - If this skill is invoked from `bill-kmp-code-review`, accept Android/KMP scope and classify it as `kmp-baseline`. In that mode, review only shared Kotlin concerns and let `bill-kmp-code-review` add mobile-specific specialists.
-- If this skill is invoked from `bill-backend-kotlin-code-review`, accept backend/server scope and classify it as `backend-kotlin-baseline`. In that mode, review only shared Kotlin concerns and let `bill-backend-kotlin-code-review` add backend-specific specialists.
 - If strong Android/KMP markers are present and this skill is invoked standalone, clearly say that `bill-kmp-code-review` is required for full Android/KMP coverage. Continue only if the caller explicitly wants the baseline Kotlin layer.
-- If backend/server signals clearly dominate and this skill is invoked standalone, delegate to `bill-backend-kotlin-code-review` and stop instead of pretending this baseline layer is the full backend review.
+- Backend/server markers stay on the `kotlin` route. Use the standard Kotlin specialists and call out backend-specific risk explicitly in findings because this repo no longer ships a separate built-in backend pack.
 - Otherwise use the `kotlin` route.
 
 ---
@@ -81,7 +79,6 @@ Architecture review is relevant for every non-trivial change.
 
 - `kotlin`: baseline is `architecture` + `bill-kotlin-code-review-platform-correctness`
 - `kmp-baseline`: baseline is `architecture` + `bill-kotlin-code-review-platform-correctness`
-- `backend-kotlin-baseline`: baseline is `architecture` + `bill-kotlin-code-review-platform-correctness`
 
 ### Step 3: Analyze the diff and select additional specialist reviews
 
@@ -97,7 +94,7 @@ Architecture review is relevant for every non-trivial change.
 - Minimum 2 agents (architecture + at least one other)
 - If no additional triggers match, include `bill-kotlin-code-review-platform-correctness` as the default second specialist review
 - Maximum 5 agents
-- Do not run KMP-only specialists or backend-only specialists from this skill; leave those to the platform-specific override that owns them
+- Do not run KMP-only specialists from this skill; leave those to the platform-specific override that owns them
 
 ### Step 5: Choose execution mode
 

@@ -19,7 +19,7 @@ class UninstallScriptTest(unittest.TestCase):
   def test_uninstall_removes_skill_symlinks_from_supported_agents(self) -> None:
     with tempfile.TemporaryDirectory() as temp_home:
       self.prepare_agent_homes(temp_home)
-      install = self.run_script(INSTALL_SCRIPT, temp_home, "copilot, claude\ncopilot\nPHP\n")
+      install = self.run_script(INSTALL_SCRIPT, temp_home, "copilot, claude\nKotlin\n")
       self.assertEqual(install.returncode, 0, install.stdout + install.stderr)
       self.assertTrue((Path(temp_home) / ".copilot" / "skills" / "bill-code-review").is_symlink())
       self.assertTrue((Path(temp_home) / ".claude" / "commands" / "bill-code-review").is_symlink())
@@ -53,7 +53,7 @@ class UninstallScriptTest(unittest.TestCase):
   def test_uninstall_removes_opencode_skill_and_mcp_registration(self) -> None:
     with tempfile.TemporaryDirectory() as temp_home:
       self.prepare_agent_homes(temp_home)
-      install = self.run_script(INSTALL_SCRIPT, temp_home, "opencode\nPHP\n")
+      install = self.run_script(INSTALL_SCRIPT, temp_home, "opencode\nKotlin\n")
       self.assertEqual(install.returncode, 0, install.stdout + install.stderr)
       self.assertTrue((Path(temp_home) / ".config" / "opencode" / "skills" / "bill-code-review").is_symlink())
 

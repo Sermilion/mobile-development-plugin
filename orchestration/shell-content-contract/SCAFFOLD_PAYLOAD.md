@@ -52,8 +52,7 @@ Every payload MUST include:
 - `platform` — required for `platform-override-piloted`, `code-review-area`,
   `platform-pack`, and `add-on`.
   - For `platform-override-piloted`, `code-review-area`, and `add-on`, it
-    must name an existing platform slug (e.g. `kotlin`, `kmp`,
-    `backend-kotlin`, `php`, `go`, `agent-config`).
+    must name an existing platform slug (e.g. `kotlin`, `kmp`).
   - For `platform-pack`, it is the new platform slug to create.
 - `family` — required for `platform-override-piloted`. One of the known
   families:
@@ -118,16 +117,16 @@ Every payload MUST include:
 {
   "scaffold_payload_version": "1.0",
   "kind": "platform-override-piloted",
-  "name": "bill-php-quality-check",
-  "platform": "php",
+  "name": "bill-kotlin-quality-check",
+  "platform": "kotlin",
   "family": "quality-check"
 }
 ```
 
 This lands the skill at
-`platform-packs/php/quality-check/bill-php-quality-check/SKILL.md` and edits
+`platform-packs/kotlin/quality-check/bill-kotlin-quality-check/SKILL.md` and edits
 the owning pack's `platform.yaml` to register
-`declared_quality_check_file: quality-check/bill-php-quality-check/SKILL.md`.
+`declared_quality_check_file: quality-check/bill-kotlin-quality-check/SKILL.md`.
 The scaffolded skill links the sibling sidecars `stack-routing.md` and
 `telemetry-contract.md` just like the shelled code-review example above.
 

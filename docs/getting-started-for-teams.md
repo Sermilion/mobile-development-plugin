@@ -13,7 +13,7 @@ Follow the [Installation section of README.md](../README.md#installation). The s
 1. Clone the repo somewhere stable (e.g. `~/Development/skill-bill`).
 2. Run `./install.sh`.
 3. Select your agents (Claude Code / Copilot / Codex / OpenCode / GLM).
-4. Select your platform packages — check the [reference platform packs](../README.md#reference-platform-packs) first so you know what each stack actually gets.
+4. Select the built-in reference packs you want — check the [reference platform packs](../README.md#reference-platform-packs) first so you know what the shipped Kotlin/KMP packs include.
 
 Installed skills are symlinks back to the repo, so `git pull` updates everything without re-running install.
 
@@ -74,12 +74,12 @@ Strict structure, enforced by the validator:
 ```md
 # Skill Overrides
 
-## bill-backend-kotlin-code-review
-- Prioritize persistence and reliability specialists over performance for this service.
+## bill-kotlin-code-review
+- Prioritize platform-correctness and testing over performance for this service.
 - Flag any new dependency additions as at minimum Minor severity.
 
-## bill-backend-kotlin-code-review-persistence
-- Require explicit migration rollback steps for any schema change.
+## bill-kmp-code-review-ux-accessibility
+- Treat missing localization or accessibility labels as at minimum Major severity for user-facing surfaces.
 ```
 
 `AGENTS.md` at the repo root applies to all skills. Use it for cross-cutting context like "this service writes to both Postgres and DynamoDB" — context every review skill benefits from knowing.
@@ -174,10 +174,10 @@ SKILL-14 piloted the shell+content split on `bill-code-review`. SKILL-16 piloted
 A typical `/bill-code-review` run produces four sections:
 
 ```text
-Routed to: bill-backend-kotlin-code-review
+Routed to: bill-kotlin-code-review
 Review session ID: rvs-...
 Review run ID: rvw-...
-Detected stack: backend-kotlin
+Detected stack: kotlin
 Execution mode: inline | delegated
 Applied learnings: none | L-001, L-002
 
@@ -205,14 +205,14 @@ Treat every review as a **second opinion**, not a gate. It's calibrated for sign
 
 - **Correctness findings with file:line references that you can open and verify in seconds.** The locations are accurate; the reasoning is usually worth reading.
 - **Specialist depth** on Deep-tier platforms (Kotlin family). Multi-layer routing means multiple specialist passes reinforce each other.
-- **Quality-check results.** These run real tools (Gradle, composer, go test) and report actual exit codes.
+- **Quality-check results.** These run real tools (for the built-in packs, Gradle and related Kotlin checks) and report actual exit codes.
 - **Structural findings** — dependency direction, boundary violations, missing error paths. The model is good at spotting these.
 
 ### Verify before acting
 
 - **Performance claims without benchmarks.** Review output will sometimes label a change "performance risk" based on pattern recognition alone. Confirm with a profile or benchmark before rewriting.
 - **Security findings on unfamiliar code paths.** High severity + confidence is a signal to look, not a signal to accept. Check the actual threat model.
-- **Findings on Solid-tier platforms (PHP, Go)** that reference framework-specific behavior. Without governed add-ons, framework-specific reasoning can be less reliable.
+- **Findings on custom packs without stack-owned add-ons** that reference framework-specific behavior. Without governed add-ons, framework-specific reasoning can be less reliable.
 - **Findings about library behavior.** The model may confidently describe an API that has changed between versions. Check your actual dependency version.
 - **Anything labeled "Confidence: Low."** This is the model flagging its own uncertainty — treat as a prompt to investigate, not a conclusion.
 

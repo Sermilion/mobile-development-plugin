@@ -44,7 +44,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("php", "bill-php-ship-it"),
+        ("ruby", "bill-ruby-ship-it"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
@@ -54,17 +54,17 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("php", "bill-php-code-review-security"),
+        ("java", "bill-java-code-review-security"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 0, result.stdout)
 
-  def test_accepts_go_platform_override_of_dynamic_base_capability(self) -> None:
+  def test_accepts_external_platform_override_of_dynamic_base_capability(self) -> None:
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("go", "bill-go-ship-it"),
+        ("java", "bill-java-ship-it"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
@@ -84,13 +84,13 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("php", "bill-php-laravel-ship-it"),
+        ("ruby", "bill-ruby-laravel-ship-it"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 1, result.stdout)
       self.assertIn(
-        "platform skill 'bill-php-laravel-ship-it' must either override an approved base skill",
+        "platform skill 'bill-ruby-laravel-ship-it' must either override an approved base skill",
         result.stdout,
       )
 
@@ -98,37 +98,36 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("php", "bill-php-code-review-laravel"),
+        ("java", "bill-java-code-review-laravel"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 1, result.stdout)
       self.assertIn("code-review specialization 'laravel' is not approved", result.stdout)
 
-  def test_rejects_go_platform_only_capability_name(self) -> None:
+  def test_rejects_external_platform_only_capability_name(self) -> None:
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("go", "bill-go-gin-ship-it"),
+        ("java", "bill-java-gin-ship-it"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 1, result.stdout)
       self.assertIn(
-        "platform skill 'bill-go-gin-ship-it' must either override an approved base skill",
+        "platform skill 'bill-java-gin-ship-it' must either override an approved base skill",
         result.stdout,
       )
 
-  def test_rejects_unknown_platform_package(self) -> None:
+  def test_accepts_scaffolded_platform_package_without_matching_pack_root(self) -> None:
     with self.fixture_repo(
       [
         ("base", "bill-ship-it"),
-        ("laravel", "bill-laravel-ship-it"),
+        ("ruby", "bill-ruby-ship-it"),
       ]
     ) as repo_root:
       result = self.run_validator(repo_root)
-      self.assertEqual(result.returncode, 1, result.stdout)
-      self.assertIn("package 'laravel' is not allowed", result.stdout)
+      self.assertEqual(result.returncode, 0, result.stdout)
 
   def test_accepts_governed_addon_files_under_stack_addons_dir(self) -> None:
     with self.fixture_repo([("base", "bill-code-review")]) as repo_root:
@@ -190,11 +189,11 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kmp", "bill-kmp-code-review"),
       ],
       skill_contents={
-        "bill-php-code-review": self.portable_review_fixture_with_forbidden_wording(
-          "bill-php-code-review"
+        "bill-kmp-code-review": self.portable_review_fixture_with_forbidden_wording(
+          "bill-kmp-code-review"
         ),
       },
     ) as repo_root:
@@ -209,12 +208,12 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kotlin", "bill-kotlin-code-review"),
       ],
       skill_contents={
         "bill-code-review": self.router_fixture_without_review_run_id(),
-        "bill-php-code-review": self.portable_review_fixture_without_review_run_id(
-          "bill-php-code-review"
+        "bill-kotlin-code-review": self.portable_review_fixture_without_review_run_id(
+          "bill-kotlin-code-review"
         ),
       },
     ) as repo_root:
@@ -230,12 +229,12 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kmp", "bill-kmp-code-review"),
       ],
       skill_contents={
         "bill-code-review": self.router_fixture_without_applied_learnings(),
-        "bill-php-code-review": self.portable_review_fixture_without_applied_learnings(
-          "bill-php-code-review"
+        "bill-kmp-code-review": self.portable_review_fixture_without_applied_learnings(
+          "bill-kmp-code-review"
         ),
       },
       review_orchestrator_has_applied_learnings=False,
@@ -250,11 +249,11 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kotlin", "bill-kotlin-code-review"),
       ],
       skill_contents={
-        "bill-php-code-review": self.portable_review_fixture_without_inline_lifecycle_handoff(
-          "bill-php-code-review"
+        "bill-kotlin-code-review": self.portable_review_fixture_without_inline_lifecycle_handoff(
+          "bill-kotlin-code-review"
         ),
       },
     ) as repo_root:
@@ -308,7 +307,7 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kotlin", "bill-kotlin-code-review"),
       ],
     ) as repo_root:
       result = self.run_validator(repo_root)
@@ -318,11 +317,11 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kmp", "bill-kmp-code-review"),
       ],
       skill_contents={
-        "bill-php-code-review": self.portable_review_fixture_without_telemetry_sidecar_reference(
-          "bill-php-code-review"
+        "bill-kmp-code-review": self.portable_review_fixture_without_telemetry_sidecar_reference(
+          "bill-kmp-code-review"
         ),
       },
     ) as repo_root:
@@ -334,11 +333,11 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
     with self.fixture_repo(
       [
         ("base", "bill-code-review"),
-        ("php", "bill-php-code-review"),
+        ("kotlin", "bill-kotlin-code-review"),
       ],
       skill_contents={
-        "bill-php-code-review": self.portable_review_fixture_with_inline_telemetry_drift(
-          "bill-php-code-review"
+        "bill-kotlin-code-review": self.portable_review_fixture_with_inline_telemetry_drift(
+          "bill-kotlin-code-review"
         ),
       },
     ) as repo_root:
@@ -844,11 +843,11 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
 
       | Signal | Agent to spawn |
       | --- | --- |
-      | fixture | `bill-php-code-review-security` |
+      | fixture | `bill-kotlin-code-review-security` |
 
       Spawn all selected sub-agents simultaneously using the `task` tool.
 
-      Agents spawned: bill-php-code-review-security
+      Agents spawned: bill-kotlin-code-review-security
       """
     )
 

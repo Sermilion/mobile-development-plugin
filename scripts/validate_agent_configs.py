@@ -54,10 +54,11 @@ SKILL_OVERRIDE_FILE = ".agents/skill-overrides.md"
 SKILL_OVERRIDE_EXAMPLE_FILE = ".agents/skill-overrides.example.md"
 SKILL_OVERRIDE_TITLE = "# Skill Overrides"
 SKILL_OVERRIDE_SECTION_PATTERN = re.compile(r"^## (bill-[a-z0-9-]+)$")
-# ALLOWED_PACKAGES is discovery-driven: "base" plus every non-hidden directory
-# under ``skills/`` and every non-hidden directory under ``platform-packs/``.
-# AC9 demands no enumerated platform names survive in the validator, so we
-# compute the set at module-import time from the live filesystem layout.
+# ALLOWED_PACKAGES is discovery-driven: "base" plus every non-hidden package
+# directory that already exists under ``skills/`` or ``platform-packs/``.
+# Newly scaffolded pre-shell stacks live only under ``skills/<platform>/...``
+# until they are piloted, so the validator must not require a matching
+# ``platform-packs/<platform>/`` root for them.
 _ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -65,9 +66,9 @@ def _discover_allowed_packages(root: Path) -> tuple[str, ...]:
   """Compute the set of package directory names the validator recognizes.
 
   The rule: "base" is always allowed; every other package name is a live
-  directory under ``skills/`` or ``platform-packs/``. The validator keeps
-  this discovery-driven so adding a platform pack does not require editing
-  the validator (AC9).
+  top-level directory under ``skills/`` or ``platform-packs/``. This keeps
+  validation aligned with the scaffolded filesystem layout and avoids
+  hard-coded legacy package lists.
   """
   discovered: set[str] = {"base"}
   for container_name in ("skills", "platform-packs"):
@@ -589,6 +590,7 @@ def require_markdown_heading(text: str, heading: str, message: str, issues: list
 
 
 def validate_addon_file(addon_file: Path, root: Path, issues: list[str]) -> None:
+  allowed_packages = _discover_allowed_packages(root)
   skills_dir = root / "skills"
   relative_path = addon_file.relative_to(skills_dir)
   parts = relative_path.parts
@@ -611,10 +613,10 @@ def validate_addon_file(addon_file: Path, root: Path, issues: list[str]) -> None
     issues.append(f"{addon_file}: governed add-ons must be stack-owned, not placed under skills/base/")
     return
 
-  if package_name not in ALLOWED_PACKAGES:
+  if package_name not in allowed_packages:
     issues.append(
       f"{addon_file}: add-on package '{package_name}' is not allowed; use one of "
-      f"{', '.join(package for package in ALLOWED_PACKAGES if package != 'base')}"
+      f"{', '.join(package for package in allowed_packages if package != 'base')}"
     )
     return
 
@@ -631,6 +633,7 @@ def validate_addon_file(addon_file: Path, root: Path, issues: list[str]) -> None
 
 def validate_skill_location(skill_name: str, skill_file: Path, issues: list[str]) -> None:
   skills_dir = skill_file.parents[2]
+  allowed_packages = _discover_allowed_packages(skills_dir.parent)
   relative_path = skill_file.relative_to(skills_dir)
   parts = relative_path.parts
 
@@ -654,15 +657,20 @@ def validate_skill_location(skill_name: str, skill_file: Path, issues: list[str]
       f"{skill_file}: skill name '{skill_name}' must match an approved bill-* naming pattern"
     )
 
-  if package_name not in ALLOWED_PACKAGES:
+  if package_name not in allowed_packages:
     issues.append(
-      f"{skill_file}: package '{package_name}' is not allowed; use one of {', '.join(ALLOWED_PACKAGES)}"
+      f"{skill_file}: package '{package_name}' is not allowed; use one of {', '.join(allowed_packages)}"
     )
     return
 
   expected_prefixes = expected_prefixes_for_package(package_name)
   if package_name == "base":
-    if any(skill_name.startswith(prefix) for prefix in ("bill-agent-config-", "bill-kotlin-", "bill-kmp-", "bill-backend-kotlin-", "bill-php-", "bill-go-", "bill-gradle-")):
+    platform_prefixes = tuple(
+      f"bill-{discovered_package}-"
+      for discovered_package in allowed_packages
+      if discovered_package != "base"
+    )
+    if any(skill_name.startswith(prefix) for prefix in platform_prefixes):
       issues.append(
         f"{skill_file}: base skills must use neutral names; move '{skill_name}' to the matching package"
       )

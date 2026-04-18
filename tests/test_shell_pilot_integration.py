@@ -39,7 +39,7 @@ from skill_bill.shell_content_contract import (  # noqa: E402
 PLATFORM_PACKS_ROOT = ROOT / "platform-packs"
 FIXTURES_ROOT = ROOT / "tests" / "fixtures" / "shell_content_contract"
 EXPECTED_SLUGS: frozenset[str] = frozenset(
-  {"agent-config", "backend-kotlin", "go", "kmp", "kotlin", "php"}
+  {"kmp", "kotlin"}
 )
 
 HORIZONTAL_SKILLS: tuple[str, ...] = (
@@ -64,10 +64,10 @@ class ShellPilotIntegrationTest(unittest.TestCase):
     slugs = {pack.slug for pack in packs}
     self.assertEqual(slugs, set(EXPECTED_SLUGS))
 
-  def test_discovery_returns_exactly_six_slugs(self) -> None:
+  def test_discovery_returns_exactly_two_slugs(self) -> None:
     # AC 9 — manifest-driven discovery, no hardcoded enumeration.
     packs = discover_platform_packs(PLATFORM_PACKS_ROOT)
-    self.assertEqual(len(packs), 6)
+    self.assertEqual(len(packs), 2)
 
   def test_routed_skill_contract_preserved(self) -> None:
     # AC 13 — existing references to platform skill names must still work.
@@ -144,8 +144,8 @@ class ShellPilotIntegrationTest(unittest.TestCase):
       # Match any markdown heading (##, ###, ####, ...) whose line body
       # contains the slug as a standalone token. Word-boundary-style
       # matching prevents false positives like "Algorithm" matching the
-      # "go" slug, while still catching accidental "### Kotlin routing"
-      # or "## backend-kotlin" headings.
+      # short slugs, while still catching accidental "### Kotlin routing"
+      # or "## kmp" headings.
       escaped = re.escape(slug)
       forbidden_heading = re.compile(
         rf"(?mi)^#{{2,6}}\s+.*(?<![A-Za-z0-9-]){escaped}(?![A-Za-z0-9-]).*$",

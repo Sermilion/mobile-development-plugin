@@ -1,3 +1,12 @@
+## [2026-04-18] narrow-built-in-packs-to-kotlin-and-kmp
+Areas: README.md, AGENTS.md, CLAUDE.md, install.sh, platform-packs/{kotlin,kmp}, platform-packs/{agent-config,backend-kotlin,go,php}, scripts/, skill_bill/, skills/base/bill-quality-check/, tests/, docs/
+- Reframed the repo as the governed skill-management system plus two built-in reference packs only: `kotlin` and `kmp`. Removed the shipped `agent-config`, `backend-kotlin`, `go`, and `php` pack roots, narrowed installer/catalog/help surfaces to the remaining built-ins, and kept `platform-packs/` as the pack home. reusable
+- Folded backend Kotlin coverage back into the Kotlin baseline instead of preserving a separate built-in backend pack: Kotlin now owns backend/server routing notes, KMP always uses the Kotlin baseline, and the quality-check fallback is now only `kmp` -> `kotlin`. reusable
+- Tightened shipped-surface validation to match the new product story: `scripts/skill_repo_contracts.py` only treats built-in Kotlin/KMP review skills as shipped portable-review inventory, while `scripts/validate_agent_configs.py` still discovers external scaffolded packages from live `skills/` and `platform-packs/` layouts so non-built-in stacks remain authorable. reusable
+- Kept `CLAUDE.md` as a symlink to `AGENTS.md`; trimmed the shared instruction text just enough for `npx --yes agnix --strict .` to return zero warnings instead of breaking the link relationship. reusable
+Feature flag: N/A
+Acceptance criteria: 7/7 implemented
+
 ## [2026-04-17] boundary-history-value-rubric
 Areas: skills/base/bill-feature-implement/, tests/
 - Anchored the `boundary_history_value` telemetry field with a five-value rubric (`none` | `irrelevant` | `low` | `medium` | `high`) nested under step 3 of the pre-planning briefing's Instructions list in `reference.md`. Added a citation guardrail: `medium`/`high` ratings MUST cite a specific past entry in `boundary_history_digest`, otherwise downgrade to `low`. Enum, DB schema, validation, MCP signature, and platform-pack manifests all unchanged — the field is pass-through so this is a prompt-level fix, not a contract change. reusable

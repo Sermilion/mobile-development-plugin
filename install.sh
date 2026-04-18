@@ -79,12 +79,6 @@ get_agent_path() {
 declare -a RENAMED_SKILL_PAIRS=(
   'bill-module-history:bill-boundary-history'
   'bill-code-review-architecture:bill-kotlin-code-review-architecture'
-  'bill-code-review-backend-api-contracts:bill-backend-kotlin-code-review-api-contracts'
-  'bill-kotlin-code-review-backend-api-contracts:bill-backend-kotlin-code-review-api-contracts'
-  'bill-code-review-backend-persistence:bill-backend-kotlin-code-review-persistence'
-  'bill-kotlin-code-review-backend-persistence:bill-backend-kotlin-code-review-persistence'
-  'bill-code-review-backend-reliability:bill-backend-kotlin-code-review-reliability'
-  'bill-kotlin-code-review-backend-reliability:bill-backend-kotlin-code-review-reliability'
   'bill-code-review-compose-check:bill-kmp-code-review-ui'
   'bill-kotlin-code-review-compose-check:bill-kmp-code-review-ui'
   'bill-kmp-code-review-compose-check:bill-kmp-code-review-ui'
@@ -107,7 +101,7 @@ declare -a SKILL_PATHS=()
 declare -a INSTALL_SKILL_NAMES=()
 declare -a INSTALL_SKILL_PATHS=()
 declare -a PLATFORM_PACKAGES=()
-declare -a REQUIRED_PLATFORM_PACKAGES=(agent-config)
+declare -a REQUIRED_PLATFORM_PACKAGES=()
 declare -a SELECTED_PLATFORM_PACKAGES=()
 declare -a LEGACY_SKILL_NAMES=()
 TELEMETRY_LEVEL="anonymous"
@@ -320,12 +314,8 @@ prompt_for_agent_selection() {
 
 display_platform_name() {
   case "$1" in
-    agent-config) printf 'Agent config' ;;
-    backend-kotlin) printf 'Kotlin backend' ;;
     kotlin) printf 'Kotlin' ;;
     kmp) printf 'KMP' ;;
-    php) printf 'PHP' ;;
-    go) printf 'Go' ;;
     *)
       local label="${1//-/ }"
       printf '%s' "$label"
@@ -354,17 +344,8 @@ build_platform_packages() {
   fi
 
   PLATFORM_PACKAGES=()
-  for package in backend-kotlin kotlin kmp php go; do
+  for package in kotlin kmp; do
     if array_contains "$package" "${discovered[@]:-}"; then
-      PLATFORM_PACKAGES+=("$package")
-    fi
-  done
-
-  for package in "${discovered[@]:-}"; do
-    if array_contains "$package" "${REQUIRED_PLATFORM_PACKAGES[@]:-}"; then
-      continue
-    fi
-    if ! array_contains "$package" "${PLATFORM_PACKAGES[@]:-}"; then
       PLATFORM_PACKAGES+=("$package")
     fi
   done
@@ -400,28 +381,12 @@ resolve_platform_selection() {
       printf '__all__\n'
       return 0
       ;;
-    backendkotlin|kotlinbackend)
-      printf 'backend-kotlin\n'
-      return 0
-      ;;
-    agentconfig|skillrepo|skillsinfra)
-      printf '__deprecated_agent_config__\n'
-      return 0
-      ;;
     kotlin)
       printf 'kotlin\n'
       return 0
       ;;
     kmp|androidkmp)
       printf 'kmp\n'
-      return 0
-      ;;
-    php)
-      printf 'php\n'
-      return 0
-      ;;
-    go|golang)
-      printf 'go\n'
       return 0
       ;;
   esac
@@ -462,9 +427,8 @@ append_required_platform_packages() {
 
   for package in "${REQUIRED_PLATFORM_PACKAGES[@]:-}"; do
     # A required package is present if it exists under skills/ OR under
-    # platform-packs/. SKILL-14 and SKILL-16 moved governed packages
-    # (agent-config code-review, quality-check) into platform-packs/, so the
-    # check must span both trees or required packages silently drop.
+    # platform-packs/. The check spans both trees so future required packs
+    # continue to work if they live under platform-packs/.
     if { [[ -d "$SKILLS_DIR/$package" ]] || [[ -d "$PLATFORM_PACKS_DIR/$package" ]]; } \
       && ! array_contains "$package" "${SELECTED_PLATFORM_PACKAGES[@]:-}"; then
       SELECTED_PLATFORM_PACKAGES+=("$package")
@@ -497,7 +461,8 @@ prompt_for_platform_selection() {
     done
     option_number=$(( ${#PLATFORM_PACKAGES[@]} + 1 ))
     printf "  %s. all (install every platform package)\n" "$option_number"
-    info "Base skills and Agent config skills are always installed."
+    info "Base skills are always installed."
+    info "This repo ships only the Kotlin and KMP reference packs."
     info "Governed add-on assets under skills/<platform>/addons/ ship with their owning platform package."
     info "Choose one or more optional platform numbers (comma-separated). Names still work if you prefer them."
     printf "${CYAN}▸${NC} Enter platforms (e.g. 1,3 or %s): " "$option_number"
@@ -518,10 +483,6 @@ prompt_for_platform_selection() {
       resolved="$(resolve_platform_selection "$token" 2>/dev/null || true)"
       if [[ -z "$resolved" ]]; then
         invalid_tokens+=("$token")
-        continue
-      fi
-      if [[ "$resolved" == "__deprecated_agent_config__" ]]; then
-        info "Agent config is now always installed. The '$token' alias is no longer needed."
         continue
       fi
       if [[ "$resolved" == "__all__" ]]; then

@@ -76,12 +76,12 @@ names inline.
 - The routed skill name is the `name:` of the SKILL.md at
   `platform-packs/<slug>/quality-check/<name>/`. This contract preserves the
   existing `bill-<slug>-quality-check` user-facing commands.
-- **Explicit fallback rule:** the `kmp` and `backend-kotlin` packs
-  intentionally do NOT declare `declared_quality_check_file`. When the
-  dominant pack is `kmp` or `backend-kotlin`, route quality-check work to
-  the `kotlin` pack's quality-check skill instead. Any other pack that does
-  not declare the key loud-fails via `MissingContentFileError` — the shell
-  never silently substitutes another pack.
+- **Explicit fallback rule:** the `kmp` pack intentionally does NOT declare
+  `declared_quality_check_file`. When the dominant pack is `kmp`, route
+  quality-check work to the `kotlin` pack's quality-check skill instead.
+  Any other pack that does not declare the key loud-fails via
+  `MissingContentFileError` — the shell never silently substitutes another
+  pack.
 - If multiple supported stacks appear in one repo, run the matching
   stack-specific quality checks sequentially, not in parallel, so fixes
   stay deterministic.
@@ -98,8 +98,7 @@ artifact:
 - `MissingContentFileError` — the pack declares `declared_quality_check_file`
   but the referenced file does not exist, or the caller invoked
   `load_quality_check_content` on a pack whose `declared_quality_check_file`
-  is `None` without applying the explicit `kmp`/`backend-kotlin` → `kotlin`
-  fallback.
+  is `None` without applying the explicit `kmp` → `kotlin` fallback.
 - `MissingRequiredSectionError` — the declared quality-check content file is
   missing one of the required H2 sections (`## Description`,
   `## Execution Steps`, `## Fix Strategy`, `## Execution Mode Reporting`,

@@ -10,8 +10,7 @@ routing_signals:
     - "kotlin/"
   tie_breakers:
     - "If Android/KMP markers (androidMain, iosMain, AndroidManifest.xml, expect/actual) are present, prefer the KMP pack."
-    - "If backend/server markers (io.ktor.server, Spring, Micronaut, Exposed, application.yml) are present, prefer the backend-kotlin pack."
-    - "Otherwise route generic Kotlin/JVM libraries, CLIs, and shared utilities to this pack."
+    - "Otherwise route generic Kotlin/JVM libraries, CLIs, shared utilities, and backend/server Kotlin work to this pack."
   addon_signals: []
 
 declared_code_review_areas:
