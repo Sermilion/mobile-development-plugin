@@ -21,7 +21,7 @@ Layout kinds supported today:
 - ``code-review-area`` — same placement as piloted, but also registers the new
   area under ``declared_code_review_areas`` and ``declared_files.areas`` in the
   manifest
-- ``add-on`` — ``skills/<platform>/addons/<name>.md`` (flat; no sub-directory)
+- ``add-on`` — ``platform-packs/<platform>/addons/<name>.md`` (flat; no sub-directory)
 
 Pre-shell families (``quality-check``, ``feature-implement``, ``feature-verify``)
 are placed under ``skills/<platform>/bill-<platform>-<capability>/`` and
@@ -605,7 +605,14 @@ def _plan_add_on(payload: dict, repo_root: Path) -> dict[str, Any]:
   name = _require_string(payload, "name")
   platform = _require_string(payload, "platform")
 
-  addons_root = repo_root / "skills" / platform / "addons"
+  pack_root = repo_root / "platform-packs" / platform
+  if not (pack_root / "platform.yaml").is_file():
+    raise MissingPlatformPackError(
+      f"Platform pack '{platform}' does not exist at '{pack_root}'. "
+      "Create a conforming platform.yaml before adding a governed add-on into it."
+    )
+
+  addons_root = pack_root / "addons"
   skill_file = addons_root / f"{name}.md"
   return {
     "kind": SKILL_KIND_ADD_ON,

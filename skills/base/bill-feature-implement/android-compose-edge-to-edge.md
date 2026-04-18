@@ -1,1 +1,1 @@
-../../kmp/addons/android-compose-edge-to-edge.md
+../../../platform-packs/kmp/addons/android-compose-edge-to-edge.md

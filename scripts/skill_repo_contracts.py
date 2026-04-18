@@ -40,17 +40,17 @@ GOVERNED_ADDON_SUPPORT_FILES: dict[str, tuple[str, ...]] = {
 }
 
 ADDON_SUPPORTING_FILE_TARGETS: dict[str, str] = {
-  f"{addon_slug}{ADDON_IMPLEMENTATION_SUFFIX}": f"skills/{stack}/addons/{addon_slug}{ADDON_IMPLEMENTATION_SUFFIX}"
+  f"{addon_slug}{ADDON_IMPLEMENTATION_SUFFIX}": f"platform-packs/{stack}/addons/{addon_slug}{ADDON_IMPLEMENTATION_SUFFIX}"
   for stack, addon_slugs in GOVERNED_STACK_ADDONS.items()
   for addon_slug in addon_slugs
 }
 ADDON_SUPPORTING_FILE_TARGETS.update({
-  f"{addon_slug}{ADDON_REVIEW_SUFFIX}": f"skills/{stack}/addons/{addon_slug}{ADDON_REVIEW_SUFFIX}"
+  f"{addon_slug}{ADDON_REVIEW_SUFFIX}": f"platform-packs/{stack}/addons/{addon_slug}{ADDON_REVIEW_SUFFIX}"
   for stack, addon_slugs in GOVERNED_STACK_ADDONS.items()
   for addon_slug in addon_slugs
 })
 ADDON_SUPPORTING_FILE_TARGETS.update({
-  file_name: f"skills/{stack}/addons/{file_name}"
+  file_name: f"platform-packs/{stack}/addons/{file_name}"
   for stack, file_names in GOVERNED_ADDON_SUPPORT_FILES.items()
   for file_name in file_names
 })

@@ -1,1 +1,1 @@
-../../kmp/addons/android-design-system-implementation.md
+../../../platform-packs/kmp/addons/android-design-system-implementation.md

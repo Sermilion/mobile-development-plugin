@@ -40,7 +40,7 @@ Every payload MUST include:
     `platform-packs/<slug>/code-review/<name>/SKILL.md` plus additions to
     `declared_code_review_areas` and `declared_files.areas` in the owning
     `platform.yaml`.
-  - `"add-on"` — placed at `skills/<platform>/addons/<name>.md` (flat; no
+  - `"add-on"` — placed at `platform-packs/<platform>/addons/<name>.md` (flat; no
     sub-directory).
 - `name` — the canonical `bill-...` slug for the new skill. For
   `platform-pack` and `code-review-area`, the scaffolder derives canonical

@@ -100,7 +100,7 @@ A single `feature-implement` run chains 10-12 skill invocations:
 
 Small, low-risk review scopes may stay inline in one thread. Larger or higher-risk scopes use delegated review passes and report the chosen execution mode explicitly.
 
-After stack routing, a platform package may apply governed add-ons from `skills/<platform>/addons/`. These remain stack-owned metadata such as `Selected add-ons: android-compose, android-navigation, android-interop, android-design-system, android-r8` for KMP Android work. They are not extra slash commands and are not counted in the skill catalog.
+After stack routing, a platform pack may apply governed add-ons from `platform-packs/<platform>/addons/`. These remain pack-owned metadata such as `Selected add-ons: android-compose, android-navigation, android-interop, android-design-system, android-r8` for KMP Android work. They are not extra slash commands and are not counted in the skill catalog.
 
 The current `kmp` pilot uses:
 - `android-compose-implementation.md`
@@ -118,7 +118,7 @@ The current `kmp` pilot uses:
 
 Runtime skills scan the add-on index first, then open only the linked topic files whose cues match the current work so Android-specific depth stays available without paying the token cost on every KMP run.
 
-The intent is for these stack-owned add-ons to be the apex Android reference layer inside Skill Bill for transferable Android development guidance: Compose edge-to-edge and adaptive surfaces, Android navigation/state patterns, host-boundary interoperability, design-system/theming work, and Android shrinker/R8 behavior. Android-specific upgrade playbooks such as AGP migrations or Play Billing version bumps stay out of runtime add-ons unless they are intentionally modeled as their own governed assets.
+The intent is for these pack-owned add-ons to be the apex Android reference layer inside Skill Bill for transferable Android development guidance: Compose edge-to-edge and adaptive surfaces, Android navigation/state patterns, host-boundary interoperability, design-system/theming work, and Android shrinker/R8 behavior. Android-specific upgrade playbooks such as AGP migrations or Play Billing version bumps stay out of runtime add-ons unless they are intentionally modeled as their own governed assets.
 
 Base entry points stay stable for users:
 
@@ -182,7 +182,7 @@ The installer first asks which agent targets to install to. You can choose one o
 all
 ```
 
-It then shows the available built-in reference packs and asks which ones to install. Base skills in `skills/base/` are always installed; the optional pack choices in this repo are `kotlin` and `kmp`. Governed add-ons under `skills/<platform>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
+It then shows the available built-in reference packs and asks which ones to install. Base skills in `skills/base/` are always installed; the optional pack choices in this repo are `kotlin` and `kmp`. Governed add-ons under `platform-packs/<platform>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
 
 Available options are shown as separate entries:
 
@@ -326,7 +326,7 @@ If you only remember four things, remember these:
 
 1. Users enter through stable skills in `skills/base/`.
 2. Platform depth lives in `skills/<platform>/`.
-3. Governed add-ons live under `skills/<platform>/addons/` and apply only after stack routing.
+3. Governed add-ons live under `platform-packs/<platform>/addons/` and apply only after stack routing.
 4. Shared logic is documented in `orchestration/`, but runtimes consume it through sibling sidecars such as `stack-routing.md`, `review-orchestrator.md`, `review-delegation.md`, and `telemetry-contract.md`.
 5. Topology changes should start in `scripts/skill_repo_contracts.py`, then flow into skills, tests, and docs.
 

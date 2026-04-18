@@ -473,7 +473,7 @@ prompt_for_platform_selection() {
     printf "  %s. all (install every platform package)\n" "$option_number"
     info "Base skills are always installed."
     info "This repo ships only the Kotlin and KMP reference packs."
-    info "Governed add-on assets under skills/<platform>/addons/ ship with their owning platform package."
+    info "Governed add-on assets under platform-packs/<platform>/addons/ ship with their owning platform package."
     info "Choose one or more optional platform numbers (comma-separated). Names still work if you prefer them."
     printf "${CYAN}▸${NC} Enter platforms (e.g. 1,3 or %s): " "$option_number"
     read -r input

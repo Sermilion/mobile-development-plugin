@@ -1,1 +1,1 @@
-../../kmp/addons/android-interop-implementation.md
+../../../platform-packs/kmp/addons/android-interop-implementation.md

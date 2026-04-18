@@ -1,1 +1,1 @@
-../../kmp/addons/android-r8-implementation.md
+../../../platform-packs/kmp/addons/android-r8-implementation.md

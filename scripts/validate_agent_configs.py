@@ -330,14 +330,17 @@ def validate_platform_pack_skill_file(skill_name: str, skill_file: Path, issues:
 
 
 def discover_addon_files(root: Path) -> list[Path]:
-  skills_dir = root / "skills"
-  if not skills_dir.is_dir():
-    return []
-  return sorted(
-    path
-    for path in skills_dir.rglob("*.md")
-    if ADDON_DIRECTORY_NAME in path.relative_to(skills_dir).parts
-  )
+  discovered: list[Path] = []
+  for container_name in ("skills", "platform-packs"):
+    container = root / container_name
+    if not container.is_dir():
+      continue
+    discovered.extend(
+      path
+      for path in container.rglob("*.md")
+      if ADDON_DIRECTORY_NAME in path.relative_to(container).parts
+    )
+  return sorted(discovered)
 
 
 ORCHESTRATOR_SKILLS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -463,9 +466,9 @@ def validate_runtime_supporting_files(
       skill_name == "bill-feature-implement"
       and file_name in ADDON_SUPPORTING_FILE_TARGETS
     ):
-      if file_name not in text and "matching stack-owned add-on supporting files" not in text:
+      if file_name not in text and "matching pack-owned add-on supporting files" not in text:
         issues.append(
-          f"{skill_file}: must reference local supporting file '{file_name}' or describe stack-owned add-on support-file selection"
+          f"{skill_file}: must reference local supporting file '{file_name}' or describe pack-owned add-on support-file selection"
         )
     elif file_name not in text:
       issues.append(f"{skill_file}: must reference local supporting file '{file_name}'")
@@ -591,26 +594,41 @@ def require_markdown_heading(text: str, heading: str, message: str, issues: list
 
 def validate_addon_file(addon_file: Path, root: Path, issues: list[str]) -> None:
   allowed_packages = _discover_allowed_packages(root)
-  skills_dir = root / "skills"
-  relative_path = addon_file.relative_to(skills_dir)
-  parts = relative_path.parts
+  container_name = ""
+  relative_path: Path
+  if addon_file.is_relative_to(root / "platform-packs"):
+    container_name = "platform-packs"
+    relative_path = addon_file.relative_to(root / "platform-packs")
+  elif addon_file.is_relative_to(root / "skills"):
+    container_name = "skills"
+    relative_path = addon_file.relative_to(root / "skills")
+  else:
+    issues.append(f"{addon_file}: governed add-on is outside skills/ and platform-packs/")
+    return
 
+  parts = relative_path.parts
   if len(parts) != 3:
     issues.append(
-      f"{addon_file}: expected add-on path format skills/<package>/{ADDON_DIRECTORY_NAME}/<addon-file>.md, "
-      f"got skills/{relative_path}"
+      f"{addon_file}: expected add-on path format platform-packs/<package>/{ADDON_DIRECTORY_NAME}/<addon-file>.md, "
+      f"got {container_name}/{relative_path}"
     )
     return
 
   package_name, directory_name, file_name = parts
   if directory_name != ADDON_DIRECTORY_NAME:
     issues.append(
-      f"{addon_file}: governed add-ons must live under skills/<package>/{ADDON_DIRECTORY_NAME}/"
+      f"{addon_file}: governed add-ons must live under platform-packs/<package>/{ADDON_DIRECTORY_NAME}/"
     )
     return
 
-  if package_name == "base":
-    issues.append(f"{addon_file}: governed add-ons must be stack-owned, not placed under skills/base/")
+  if container_name == "skills":
+    if package_name == "base":
+      issues.append(f"{addon_file}: governed add-ons must be pack-owned, not placed under skills/base/")
+    else:
+      issues.append(
+        f"{addon_file}: governed add-ons must live under platform-packs/<package>/{ADDON_DIRECTORY_NAME}/, "
+        f"not skills/{package_name}/{ADDON_DIRECTORY_NAME}/"
+      )
     return
 
   if package_name not in allowed_packages:

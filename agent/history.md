@@ -1,3 +1,11 @@
+## [2026-04-18] move-governed-addons-into-platform-packs
+Areas: platform-packs/kmp/addons, scripts/, skill_bill/, README.md, AGENTS.md, tests/
+- Moved governed KMP add-ons from `skills/kmp/addons/` into `platform-packs/kmp/addons/` so pack-owned runtime content now lives entirely under the owning platform pack instead of being split across `skills/` and `platform-packs/`. reusable
+- Rewired KMP review and feature-implement sidecars to the new add-on targets, and updated `scripts/skill_repo_contracts.py`, the validator, and the scaffolder so `platform-packs/<platform>/addons/` is the canonical add-on topology while the old `skills/<platform>/addons/` layout now fails validation. reusable
+- Updated AGENTS/README/scaffold docs and contract tests to describe add-ons as pack-owned assets, and added fixture coverage so future topology changes must keep pack manifests, sidecars, scaffold output, and validator expectations aligned. reusable
+Feature flag: N/A
+Acceptance criteria: 4/4 implemented
+
 ## [2026-04-18] restore-kotlin-backend-review-depth
 Areas: platform-packs/kotlin, README.md, tests/
 - Restored backend review depth inside the built-in `kotlin` pack instead of reviving a separate `backend-kotlin` pack: added `api-contracts`, `persistence`, and `reliability` specialist skills under `platform-packs/kotlin/code-review/`. reusable

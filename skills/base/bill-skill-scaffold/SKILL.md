@@ -35,8 +35,8 @@ Ask the user enough to pick exactly one of the five kinds:
 4. **code-review-area** — a specialist for one approved code-review area inside an existing platform pack.
    - Approved areas: `architecture`, `performance`, `platform-correctness`, `security`, `testing`, `api-contracts`, `persistence`, `reliability`, `ui`, `ux-accessibility`.
    - Destination: `platform-packs/<slug>/code-review/<name>/SKILL.md` + manifest edits.
-5. **add-on** — a stack-owned supporting asset, not a standalone skill.
-   - Destination: `skills/<platform>/addons/<name>.md` (flat, no sub-directory).
+5. **add-on** — a pack-owned supporting asset, not a standalone skill.
+   - Destination: `platform-packs/<platform>/addons/<name>.md` (flat, no sub-directory).
 
 Refuse to invent a new family or code-review area inline. New platforms are allowed only through the `platform-pack` kind. If the user asks for a new family or unapproved area, ask them to first update `skill_bill/constants.py::PRE_SHELL_FAMILIES` or the approved-area list in the same change they submit the skill in.
 

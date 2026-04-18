@@ -88,6 +88,29 @@ declared_files:
     architecture: code-review/bill-kotlin-code-review-architecture/SKILL.md
 """
 
+_KMP_MANIFEST = """\
+platform: kmp
+contract_version: "1.0"
+display_name: KMP
+governs_addons: true
+
+routing_signals:
+  strong:
+    - "androidMain"
+  tie_breakers:
+    - "prefer KMP for multiplatform fixtures"
+  addon_signals:
+    - "android-compose"
+
+declared_code_review_areas:
+  - ui
+
+declared_files:
+  baseline: code-review/bill-kmp-code-review/SKILL.md
+  areas:
+    ui: code-review/bill-kmp-code-review-ui/SKILL.md
+"""
+
 
 def _seed_skill_file(path: Path) -> None:
   """Write a minimal six-section SKILL.md at ``path``."""
@@ -120,14 +143,20 @@ def _build_seed_repo(tmp_path: Path) -> Path:
   # overrides like ``bill-php-feature-verify`` without tripping on missing
   # base capabilities.
   (repo / "skills" / "base" / "bill-feature-verify").mkdir(parents=True)
-  (repo / "skills" / "kmp" / "addons").mkdir(parents=True)
   (repo / "skills" / "php").mkdir(parents=True)
-  pack_root = repo / "platform-packs" / "kotlin"
-  pack_root.mkdir(parents=True)
-  (pack_root / "platform.yaml").write_text(_KOTLIN_MANIFEST, encoding="utf-8")
-  _seed_skill_file(pack_root / "code-review" / "bill-kotlin-code-review" / "SKILL.md")
+  kotlin_pack_root = repo / "platform-packs" / "kotlin"
+  kotlin_pack_root.mkdir(parents=True)
+  (kotlin_pack_root / "platform.yaml").write_text(_KOTLIN_MANIFEST, encoding="utf-8")
+  _seed_skill_file(kotlin_pack_root / "code-review" / "bill-kotlin-code-review" / "SKILL.md")
   _seed_skill_file(
-    pack_root / "code-review" / "bill-kotlin-code-review-architecture" / "SKILL.md"
+    kotlin_pack_root / "code-review" / "bill-kotlin-code-review-architecture" / "SKILL.md"
+  )
+  kmp_pack_root = repo / "platform-packs" / "kmp"
+  kmp_pack_root.mkdir(parents=True)
+  (kmp_pack_root / "platform.yaml").write_text(_KMP_MANIFEST, encoding="utf-8")
+  _seed_skill_file(kmp_pack_root / "code-review" / "bill-kmp-code-review" / "SKILL.md")
+  _seed_skill_file(
+    kmp_pack_root / "code-review" / "bill-kmp-code-review-ui" / "SKILL.md"
   )
   # No scripts/validate_agent_configs.py in the scratch repo; the scaffolder
   # skips the validator in that case. Tests that want to exercise validator
@@ -328,7 +357,7 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
       self._payload(kind="add-on", name="android-new-addon", platform="kmp")
     )
     self.assertEqual(result.kind, "add-on")
-    addon_md = self.repo / "skills" / "kmp" / "addons" / "android-new-addon.md"
+    addon_md = self.repo / "platform-packs" / "kmp" / "addons" / "android-new-addon.md"
     self.assertTrue(addon_md.is_file())
 
   def test_pre_shell_family_emits_interim_note(self) -> None:

@@ -1,1 +1,1 @@
-../../kmp/addons/android-navigation-implementation.md
+../../../platform-packs/kmp/addons/android-navigation-implementation.md

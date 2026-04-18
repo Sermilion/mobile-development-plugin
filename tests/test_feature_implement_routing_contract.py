@@ -44,18 +44,18 @@ QUALITY_CHECK = read("skills/base/bill-quality-check/SKILL.md")
 PR_DESCRIPTION = read("skills/base/bill-pr-description/SKILL.md")
 KOTLIN_CODE_REVIEW = read("platform-packs/kotlin/code-review/bill-kotlin-code-review/SKILL.md")
 KMP_CODE_REVIEW = read("platform-packs/kmp/code-review/bill-kmp-code-review/SKILL.md")
-KMP_ANDROID_COMPOSE_EDGE_TO_EDGE = read("skills/kmp/addons/android-compose-edge-to-edge.md")
-KMP_ANDROID_COMPOSE_ADAPTIVE = read("skills/kmp/addons/android-compose-adaptive-layouts.md")
-KMP_ANDROID_COMPOSE_IMPLEMENTATION = read("skills/kmp/addons/android-compose-implementation.md")
-KMP_ANDROID_COMPOSE_REVIEW = read("skills/kmp/addons/android-compose-review.md")
-KMP_ANDROID_NAVIGATION_IMPLEMENTATION = read("skills/kmp/addons/android-navigation-implementation.md")
-KMP_ANDROID_NAVIGATION_REVIEW = read("skills/kmp/addons/android-navigation-review.md")
-KMP_ANDROID_INTEROP_IMPLEMENTATION = read("skills/kmp/addons/android-interop-implementation.md")
-KMP_ANDROID_INTEROP_REVIEW = read("skills/kmp/addons/android-interop-review.md")
-KMP_ANDROID_DESIGN_SYSTEM_IMPLEMENTATION = read("skills/kmp/addons/android-design-system-implementation.md")
-KMP_ANDROID_DESIGN_SYSTEM_REVIEW = read("skills/kmp/addons/android-design-system-review.md")
-KMP_ANDROID_R8_IMPLEMENTATION = read("skills/kmp/addons/android-r8-implementation.md")
-KMP_ANDROID_R8_REVIEW = read("skills/kmp/addons/android-r8-review.md")
+KMP_ANDROID_COMPOSE_EDGE_TO_EDGE = read("platform-packs/kmp/addons/android-compose-edge-to-edge.md")
+KMP_ANDROID_COMPOSE_ADAPTIVE = read("platform-packs/kmp/addons/android-compose-adaptive-layouts.md")
+KMP_ANDROID_COMPOSE_IMPLEMENTATION = read("platform-packs/kmp/addons/android-compose-implementation.md")
+KMP_ANDROID_COMPOSE_REVIEW = read("platform-packs/kmp/addons/android-compose-review.md")
+KMP_ANDROID_NAVIGATION_IMPLEMENTATION = read("platform-packs/kmp/addons/android-navigation-implementation.md")
+KMP_ANDROID_NAVIGATION_REVIEW = read("platform-packs/kmp/addons/android-navigation-review.md")
+KMP_ANDROID_INTEROP_IMPLEMENTATION = read("platform-packs/kmp/addons/android-interop-implementation.md")
+KMP_ANDROID_INTEROP_REVIEW = read("platform-packs/kmp/addons/android-interop-review.md")
+KMP_ANDROID_DESIGN_SYSTEM_IMPLEMENTATION = read("platform-packs/kmp/addons/android-design-system-implementation.md")
+KMP_ANDROID_DESIGN_SYSTEM_REVIEW = read("platform-packs/kmp/addons/android-design-system-review.md")
+KMP_ANDROID_R8_IMPLEMENTATION = read("platform-packs/kmp/addons/android-r8-implementation.md")
+KMP_ANDROID_R8_REVIEW = read("platform-packs/kmp/addons/android-r8-review.md")
 KMP_COMPOSE_UI_REVIEW = read("platform-packs/kmp/code-review/bill-kmp-code-review-ui/SKILL.md")
 STACK_ROUTING_PLAYBOOK = read("orchestration/stack-routing/PLAYBOOK.md")
 REVIEW_ORCHESTRATOR_PLAYBOOK = read("orchestration/review-orchestrator/PLAYBOOK.md")
@@ -228,11 +228,11 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
       FEATURE_IMPLEMENT,
     )
     self.assertIn(
-      "Let the routed stack own add-on detection and selection",
+      "Let the routed pack own add-on detection and selection",
       FEATURE_IMPLEMENT,
     )
     self.assertIn(
-      "scan the matching stack-owned add-on supporting files' `## Section index` headings first",
+      "scan the matching pack-owned add-on supporting files' `## Section index` headings first",
       FEATURE_IMPLEMENT,
     )
     self.assertIn(
@@ -299,7 +299,7 @@ class FeatureImplementRoutingContractTest(unittest.TestCase):
     for skill_name, sidecar_path in sidecar_paths("android-compose-review.md").items():
       with self.subTest(skill=skill_name):
         self.assertTrue(sidecar_path.is_symlink())
-        self.assertEqual(sidecar_path.resolve(), ROOT / "skills" / "kmp" / "addons" / "android-compose-review.md")
+        self.assertEqual(sidecar_path.resolve(), ROOT / "platform-packs" / "kmp" / "addons" / "android-compose-review.md")
     self.assertIn(
       "Selected add-ons: none | <add-on slugs>",
       KMP_CODE_REVIEW,

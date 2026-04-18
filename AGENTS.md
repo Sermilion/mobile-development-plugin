@@ -8,7 +8,7 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
 
 - `skills/base/` holds canonical user-facing skills, including the `bill-code-review` and `bill-quality-check` shells.
 - `skills/<platform>/` holds pre-shell platform overrides such as `bill-feature-implement` and `bill-feature-verify`.
-- `skills/<platform>/addons/` holds stack-owned add-ons applied only after routing.
+- `platform-packs/<platform>/addons/` holds pack-owned add-ons applied after routing.
 - `platform-packs/<platform>/` holds user-owned packs for code review and quality-check behavior.
 - `orchestration/` is the shared source of truth for routing, review, delegation, telemetry, and shell contracts.
 
@@ -33,15 +33,15 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
 
 ## Governed add-ons
 
-- Add-ons are stack-owned support files, not standalone skills.
-- Keep them flat in the owning platform's `addons/` directory, use lowercase kebab-case names, and resolve them only after dominant-stack routing.
+- Add-ons are pack-owned files, not standalone skills.
+- Keep them flat in the owning pack's `addons/` directory, use lowercase kebab-case names, and resolve them only after dominant-stack routing.
 - Runtime skills consume add-ons through sibling supporting files, report them as `Selected add-ons: ...`, and every add-on change needs validator plus routing-contract coverage.
 
 ## Non-negotiable rules
 
 - Add platform behavior only as manifest-declared overrides or approved code-review areas.
 - Add a new pack only when behavior materially differs from an existing pack.
-- Keep add-ons stack-owned, use sibling supporting files for shared contracts, and keep `orchestration/` aligned with those links.
+- Keep add-ons pack-owned, use sibling supporting files for shared contracts, and keep `orchestration/` aligned with those links.
 - Route by dominant stack first, then apply governed add-ons.
 - Keep `SHELL_CONTRACT_VERSION` in lockstep across shell and packs, and treat the loud-fail loader as authoritative.
 - Keep `README.md` catalog data accurate and update `install.sh` migration rules when renaming stack-bound skills.
@@ -60,7 +60,7 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
   - `platform-override-piloted`: create the skill in the selected pack, updating its manifest; for `quality-check`, register `declared_quality_check_file`.
   - `platform-override-piloted` for pre-shell families: create the skill in the platform's legacy `skills/` location and note that it will move when piloted.
   - `code-review-area`: create the specialist in the selected pack and register the area.
-  - `add-on`: create a flat add-on file in the selected platform's `addons/` directory.
+  - `add-on`: create a flat add-on file in the selected platform pack's `addons/` directory.
 - Pre-shell families are defined in `skill_bill/constants.py`; add the family there and in `skill_bill/scaffold.py` together.
 - Entry point: `skill_bill/scaffold.py`. Payload schema and exception catalog live in `orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md`.
 - The scaffolder is atomic. Validator, manifest-write, or symlink failures must roll the repo back byte-for-byte.

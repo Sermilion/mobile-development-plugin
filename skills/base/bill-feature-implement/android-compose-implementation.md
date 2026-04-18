@@ -1,1 +1,1 @@
-../../kmp/addons/android-compose-implementation.md
+../../../platform-packs/kmp/addons/android-compose-implementation.md

@@ -212,7 +212,7 @@ Treat every review as a **second opinion**, not a gate. It's calibrated for sign
 
 - **Performance claims without benchmarks.** Review output will sometimes label a change "performance risk" based on pattern recognition alone. Confirm with a profile or benchmark before rewriting.
 - **Security findings on unfamiliar code paths.** High severity + confidence is a signal to look, not a signal to accept. Check the actual threat model.
-- **Findings on custom packs without stack-owned add-ons** that reference framework-specific behavior. Without governed add-ons, framework-specific reasoning can be less reliable.
+- **Findings on custom packs without pack-owned add-ons** that reference framework-specific behavior. Without governed add-ons, framework-specific reasoning can be less reliable.
 - **Findings about library behavior.** The model may confidently describe an API that has changed between versions. Check your actual dependency version.
 - **Anything labeled "Confidence: Low."** This is the model flagging its own uncertainty — treat as a prompt to investigate, not a conclusion.
 
