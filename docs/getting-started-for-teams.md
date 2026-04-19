@@ -115,7 +115,7 @@ skill-bill new-skill --payload /tmp/payload.json
 
 The scaffolder:
 
-- creates `platform-packs/java/platform.yaml` plus baseline `code-review` and `quality-check` content files.
+- creates `platform-packs/java/platform.yaml` plus baseline `code-review` and `quality-check` content files, and thin `skills/java/bill-java-feature-implement/` / `skills/java/bill-java-feature-verify/` stubs.
 - applies the built-in Java routing preset automatically, including the governed manifest fields and required H2 sections.
 - wires the sibling supporting files needed by the generated skills.
 - installs the new skills into every detected agent.

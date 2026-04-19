@@ -396,6 +396,28 @@ class ValidateAgentConfigsE2ETest(unittest.TestCase):
       result = self.run_validator(repo_root)
       self.assertEqual(result.returncode, 0, result.stdout)
 
+  def test_accepts_pre_shell_platform_skills_not_listed_in_readme_catalog(self) -> None:
+    with self.fixture_repo(
+      [
+        ("base", "bill-feature-implement"),
+        ("base", "bill-feature-verify"),
+        ("java", "bill-java-feature-implement"),
+        ("java", "bill-java-feature-verify"),
+      ],
+      skill_contents={
+        "bill-feature-implement": (
+          self.skill_markdown("bill-feature-implement")
+          + "\nWhen invoking child MCP tools, pass `orchestrated=true` to every call.\n"
+        ),
+        "bill-feature-verify": (
+          self.skill_markdown("bill-feature-verify")
+          + "\nWhen invoking child MCP tools, pass `orchestrated=true` to every call.\n"
+        ),
+      },
+    ) as repo_root:
+      result = self.run_validator(repo_root)
+      self.assertEqual(result.returncode, 0, result.stdout)
+
   def write_platform_pack(
     self,
     repo_root: Path,

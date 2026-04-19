@@ -261,7 +261,7 @@ Built-in first-party reference pack at `platform-packs/kmp/`. Layers Android/KMP
 | `/bill-feature-guard` | Add feature-flag rollout safety |
 | `/bill-feature-guard-cleanup` | Remove feature flags after rollout |
 
-### Utilities (8 skills)
+### Utilities (9 skills)
 
 | Skill | Purpose |
 |-------|---------|
@@ -273,6 +273,7 @@ Built-in first-party reference pack at `platform-packs/kmp/`. Layers Android/KMP
 | `/bill-pr-description` | Generate PR title, description, and QA steps, preferring repo PR templates when present |
 | `/bill-grill-plan` | Stress-test a plan or design by walking every decision branch |
 | `/bill-skill-scaffold` | Scaffold a new skill or platform skill set and sync it to all agents |
+| `/bill-skill-remove` | Remove an existing skill or platform skill set and clean up installs and wiring |
 
 ## Project customization
 
@@ -404,10 +405,10 @@ The validator enforces:
 
 Preferred path:
 
-- from inside an AI agent, run `/bill-skill-scaffold`. The skill collects intent with a decision tree over the five supported kinds (horizontal, platform-override-piloted, platform-pack, code-review-area, add-on), previews the scaffolded output with synthesized markers, and subprocess-calls `skill-bill new-skill --payload <tempfile>` to materialize the skill.
-- outside an agent (scripts, CI, teams piloting a new platform), run `skill-bill new-skill --interactive` for a kind-specific no-LLM flow, or pass a JSON payload file with `skill-bill new-skill --payload ./payload.json`.
+- from inside an AI agent, run `/bill-skill-scaffold`. The skill now starts with plain-language intake, especially for `platform-pack`: ask for the platform slug, ask whether to include code-review specialists, preview the generated baseline set, then subprocess-call `skill-bill new-skill --payload <tempfile>` to materialize it.
+- outside an agent (scripts, CI, teams piloting a new platform), run `skill-bill new-skill --interactive` for the same plain-language bootstrap flow, or pass a JSON payload file with `skill-bill new-skill --payload ./payload.json`.
 
-New platform packs are scaffolded as a pack root plus baseline quality-check content, so adding a fresh platform no longer requires manual manifest assembly or README platform catalog maintenance. Known platforms such as `java` use built-in routing presets; only unknown or custom platforms need manual `routing_signals`. `platform-pack` also supports `skeleton_mode=full` to generate a full bare-bones review-area skill set up front. Add specialist areas later with the `code-review-area` flow when you choose the lighter `starter` path.
+New platform packs are scaffolded as a bootstrap set: pack root, baseline `code-review`, baseline `quality-check`, and thin `feature-implement` / `feature-verify` stubs. Known platforms such as `java` use built-in routing presets; only unknown or custom platforms need manual `routing_signals`. `platform-pack` still supports `skeleton_mode=full` when you want the bare-bones review specialists created up front; choose `starter` when you want only the baseline path first.
 
 The payload schema, the loud-fail exception catalog, and one worked example per kind live in `orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md`.
 

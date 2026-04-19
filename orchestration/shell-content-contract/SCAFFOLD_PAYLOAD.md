@@ -35,7 +35,8 @@ Every payload MUST include:
     `skills/<platform>/<name>/SKILL.md` with an interim-location note.
   - `"platform-pack"` — creates a new `platform-packs/<slug>/` root with a
     generated baseline `code-review` skill, a default `quality-check` skill,
-    and a freshly rendered `platform.yaml`.
+    thin `feature-implement` / `feature-verify` platform stubs, and a freshly
+    rendered `platform.yaml`.
   - `"code-review-area"` — placed under
     `platform-packs/<slug>/code-review/<name>/SKILL.md` plus additions to
     `declared_code_review_areas` and `declared_files.areas` in the owning
@@ -76,8 +77,8 @@ Every payload MUST include:
   title-cased version of `platform`.
 - `skeleton_mode` — `starter` or `full` for `platform-pack`. Defaults to
   `starter`.
-  - `starter` creates the pack root, baseline `code-review`, and default
-    `quality-check`.
+  - `starter` creates the pack root, baseline `code-review`, default
+    `quality-check`, and thin `feature-implement` / `feature-verify` stubs.
   - `full` also creates bare specialist stubs for every approved
     code-review area and registers them in the generated manifest.
 - `governs_addons` — optional boolean for `platform-pack`. Defaults to
@@ -144,10 +145,12 @@ The scaffolded skill links the sibling sidecars `stack-routing.md` and
 ```
 
 This creates `platform-packs/java/platform.yaml`,
-`platform-packs/java/code-review/bill-java-code-review/SKILL.md`, and
-`platform-packs/java/quality-check/bill-java-quality-check/SKILL.md`. The
-quality-check skill is scaffolded by default. The built-in `java` preset
-supplies the routing signals, and the follow-on
+`platform-packs/java/code-review/bill-java-code-review/SKILL.md`,
+`platform-packs/java/quality-check/bill-java-quality-check/SKILL.md`,
+`skills/java/bill-java-feature-implement/SKILL.md`, and
+`skills/java/bill-java-feature-verify/SKILL.md`. The quality-check skill
+and the thin pre-shell feature stubs are scaffolded by default. The built-in
+`java` preset supplies the routing signals, and the follow-on
 `code-review-area` flow can add specialists such as architecture or
 performance without manual manifest or README edits.
 

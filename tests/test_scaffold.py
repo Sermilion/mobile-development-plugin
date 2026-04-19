@@ -281,11 +281,21 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
 
     review_skill = pack_root / "code-review" / "bill-java-code-review" / "SKILL.md"
     quality_skill = pack_root / "quality-check" / "bill-java-quality-check" / "SKILL.md"
+    feature_implement_skill = (
+      self.repo / "skills" / "java" / "bill-java-feature-implement" / "SKILL.md"
+    )
+    feature_verify_skill = (
+      self.repo / "skills" / "java" / "bill-java-feature-verify" / "SKILL.md"
+    )
     self.assertTrue(review_skill.is_file())
     self.assertTrue(quality_skill.is_file())
+    self.assertTrue(feature_implement_skill.is_file())
+    self.assertTrue(feature_verify_skill.is_file())
 
     review_body = review_skill.read_text(encoding="utf-8")
     quality_body = quality_skill.read_text(encoding="utf-8")
+    feature_implement_body = feature_implement_skill.read_text(encoding="utf-8")
+    feature_verify_body = feature_verify_skill.read_text(encoding="utf-8")
     self.assertIn("## Additional Resources", review_body)
     self.assertIn("[stack-routing.md](stack-routing.md)", review_body)
     self.assertIn("[review-orchestrator.md](review-orchestrator.md)", review_body)
@@ -298,8 +308,13 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertIn("[telemetry-contract.md](telemetry-contract.md)", quality_body)
     self.assertNotIn("## Specialist Scope", quality_body)
     self.assertNotIn("## Outputs Contract", quality_body)
+    self.assertIn("## Project Overrides", feature_implement_body)
+    self.assertIn("## Project Overrides", feature_verify_body)
     self.assertTrue(
       any("Applied built-in platform preset for 'java'." in note for note in result.notes)
+    )
+    self.assertTrue(
+      any("Thin feature-implement and feature-verify stubs" in note for note in result.notes)
     )
 
     self.assertEqual(
@@ -349,7 +364,7 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertTrue(
       any("Full skeleton scaffolded with" in note for note in result.notes)
     )
-    expected_created_files = 3 + len(scaffold_module.APPROVED_CODE_REVIEW_AREAS)
+    expected_created_files = 5 + len(scaffold_module.APPROVED_CODE_REVIEW_AREAS)
     self.assertEqual(len(result.created_files), expected_created_files)
 
   def test_add_on_flat(self) -> None:
@@ -359,6 +374,53 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertEqual(result.kind, "add-on")
     addon_md = self.repo / "platform-packs" / "kmp" / "addons" / "android-new-addon.md"
     self.assertTrue(addon_md.is_file())
+
+  def test_description_section_inferred_no_todo(self) -> None:
+    """Default `## Description` bodies must be seeded from family/platform/area
+    rather than left as `TODO:` markers. Acceptance: the H2 body renders
+    plain-English text every kind and never contains a ``TODO`` placeholder.
+    """
+    code_review_area = scaffold(
+      self._payload(
+        kind="code-review-area",
+        name="bill-kotlin-code-review-performance",
+        platform="kotlin",
+        area="performance",
+      )
+    )
+    area_body = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review-performance"
+      / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    self.assertIn("## Description", area_body)
+    self.assertNotIn("TODO: author the description", area_body)
+    self.assertIn("Kotlin", area_body)
+    self.assertIn("performance risks", area_body)
+    self.assertEqual(code_review_area.kind, "code-review-area")
+
+    scaffold(
+      self._payload(
+        kind="platform-override-piloted",
+        name="bill-php-feature-implement",
+        platform="php",
+        family="feature-implement",
+      )
+    )
+    feature_body = (
+      self.repo / "skills" / "php" / "bill-php-feature-implement" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    self.assertNotIn("TODO: author the description", feature_body)
+    self.assertIn("Php", feature_body)
+
+    scaffold(self._payload(kind="horizontal", name="bill-horizontal-new"))
+    horizontal_body = (
+      self.repo / "skills" / "bill-horizontal-new" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    self.assertNotIn("TODO: author the description", horizontal_body)
 
   def test_pre_shell_family_emits_interim_note(self) -> None:
     # SKILL-16 promoted quality-check onto the shell+content contract, so the
@@ -805,6 +867,56 @@ class NewSkillCliErrorMappingTest(unittest.TestCase):
     )
     code = new_skill_command(args)
     self.assertEqual(code, 2)
+
+
+class NewSkillInteractivePromptTest(unittest.TestCase):
+  def test_platform_pack_prompt_maps_baseline_only_to_starter(self) -> None:
+    from skill_bill.cli import _prompt_new_skill_interactively
+
+    with mock.patch(
+      "builtins.input",
+      side_effect=[
+        "1",      # new platform skill set
+        "java",   # platform
+        "n",      # include specialists?
+        "",       # display name
+        "",       # description
+        "n",      # governs add-ons?
+      ],
+    ):
+      payload = _prompt_new_skill_interactively()
+
+    self.assertEqual(payload["kind"], "platform-pack")
+    self.assertEqual(payload["platform"], "java")
+    self.assertEqual(payload["skeleton_mode"], "starter")
+    self.assertFalse(payload["governs_addons"])
+
+  def test_platform_pack_prompt_maps_specialists_to_full(self) -> None:
+    from skill_bill.cli import _prompt_new_skill_interactively
+
+    with mock.patch(
+      "builtins.input",
+      side_effect=[
+        "1",         # new platform skill set
+        "python",    # platform
+        "y",         # include specialists?
+        "Python",    # display name
+        "",          # description
+        "pyproject.toml,setup.py",  # strong signals
+        "",          # tie-breakers
+        "y",         # governs add-ons?
+      ],
+    ):
+      payload = _prompt_new_skill_interactively()
+
+    self.assertEqual(payload["kind"], "platform-pack")
+    self.assertEqual(payload["platform"], "python")
+    self.assertEqual(payload["skeleton_mode"], "full")
+    self.assertEqual(
+      payload["routing_signals"]["strong"],
+      ["pyproject.toml", "setup.py"],
+    )
+    self.assertTrue(payload["governs_addons"])
 
 
 class AgentDetectionTest(unittest.TestCase):

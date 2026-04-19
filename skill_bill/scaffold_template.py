@@ -41,12 +41,80 @@ class ScaffoldTemplateContext:
     family: capability family (``code-review``, ``quality-check``, ...).
     platform: platform slug; empty string for horizontal skills.
     area: code-review area slug; empty string for non-area kinds.
+    display_name: human-friendly platform label (e.g. ``Java``); empty for
+      horizontal skills. Used to render readable default descriptions.
   """
 
   skill_name: str
   family: str
   platform: str = ""
   area: str = ""
+  display_name: str = ""
+
+
+_AREA_DESCRIPTION_PHRASES: dict[str, str] = {
+  "architecture": "architecture, boundaries, and dependency direction",
+  "performance": "performance risks on hot paths, blocking I/O, and resource usage",
+  "platform-correctness": "lifecycle, concurrency, threading, and logic correctness",
+  "security": "secrets handling, auth, and sensitive-data exposure",
+  "testing": "test coverage quality and regression protection",
+  "api-contracts": "API contracts, request validation, and serialization",
+  "persistence": "persistence, transactions, migrations, and data consistency",
+  "reliability": "timeouts, retries, background work, and observability",
+  "ui": "UI correctness and framework usage",
+  "ux-accessibility": "UX correctness and accessibility",
+}
+
+
+def infer_skill_description(context: ScaffoldTemplateContext) -> str:
+  """Synthesize a one-line description from the context signals.
+
+  The scaffolder calls this wherever a description has not been supplied by
+  the payload, so generated skills ship with readable defaults instead of a
+  `TODO` placeholder. The text is intentionally generic; callers who want
+  bespoke wording supply ``description`` in the payload.
+  """
+  label = context.display_name or context.platform
+  family = context.family
+  area = context.area
+
+  if family == "code-review":
+    if area:
+      phrase = _AREA_DESCRIPTION_PHRASES.get(area, f"{area.replace('-', ' ')} risks")
+      if label:
+        return f"Use when reviewing {label} changes for {phrase}."
+      return f"Use when reviewing changes for {phrase}."
+    if label:
+      return f"Use when reviewing {label} changes across code-review specialists."
+    return "Use when reviewing code changes across code-review specialists."
+
+  if family == "quality-check":
+    if label:
+      return f"Use when validating {label} changes with the shared quality-check contract."
+    return "Use when validating changes with the shared quality-check contract."
+
+  if family == "feature-implement":
+    if label:
+      return (
+        f"Use when implementing a feature end-to-end in {label} codebases, "
+        "from design doc to verified code."
+      )
+    return "Use when implementing a feature end-to-end from design doc to verified code."
+
+  if family == "feature-verify":
+    if label:
+      return f"Use when verifying a {label} PR against its task spec."
+    return "Use when verifying a PR against its task spec."
+
+  if family == "add-on":
+    if label:
+      return f"Pack-owned supporting asset for the {label} platform pack."
+    return "Pack-owned supporting asset."
+
+  if context.skill_name:
+    readable = context.skill_name.removeprefix("bill-").replace("-", " ")
+    return f"Use for {readable} work."
+  return "Use for cross-stack work."
 
 
 def render_project_overrides(context: ScaffoldTemplateContext) -> str:
@@ -131,7 +199,23 @@ def render_telemetry_ceremony_hooks(context: ScaffoldTemplateContext) -> str:
   )
 
 
+def render_description_section(context: ScaffoldTemplateContext) -> str:
+  """Render the ``## Description`` section with an inferred default body.
+
+  Unlike the two scaffolder-owned ceremony sections, the Description body
+  here is a *seed* — callers may freely edit it after scaffolding. Seeding
+  it beats a `TODO:` marker because every signal we need (family, platform,
+  area) is already on the context when the skill is created.
+  """
+  return (
+    "## Description\n"
+    "\n"
+    f"{infer_skill_description(context)}\n"
+  )
+
+
 _DEFAULT_SECTION_RENDERERS: dict[str, object] = {
+  "## Description": render_description_section,
   "## Execution Mode Reporting": render_execution_mode_reporting,
   "## Telemetry Ceremony Hooks": render_telemetry_ceremony_hooks,
 }
@@ -186,7 +270,9 @@ def extract_scaffolder_owned(markdown_text: str) -> dict[str, str]:
 __all__ = [
   "ScaffoldTemplateContext",
   "extract_scaffolder_owned",
+  "infer_skill_description",
   "render_default_section",
+  "render_description_section",
   "render_execution_mode_reporting",
   "render_project_overrides",
   "render_telemetry_ceremony_hooks",

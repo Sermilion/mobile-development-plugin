@@ -162,7 +162,7 @@ def main() -> int:
 
   validate_readme(
     root / "README.md",
-    skill_names,
+    skill_files,
     sorted(platform_pack_skill_files.keys()),
     issues,
   )
@@ -793,7 +793,7 @@ def parse_frontmatter(block: str) -> dict[str, str]:
 
 def validate_readme(
   readme_path: Path,
-  skill_names: list[str],
+  skill_files: dict[str, Path],
   platform_pack_skill_names: list[str],
   issues: list[str],
 ) -> None:
@@ -823,11 +823,16 @@ def validate_readme(
       section_count += 1
 
   documented_set = sorted(set(documented_skills))
-  actual_set = sorted(skill_names)
+  actual_set = sorted(set(skill_files) | set(platform_pack_skill_names))
   platform_pack_set = set(platform_pack_skill_names)
-  core_skill_set = sorted(set(actual_set) - platform_pack_set)
+  catalog_required_skill_set = sorted(
+    skill_name
+    for skill_name, skill_file in skill_files.items()
+    if len(skill_file.relative_to(readme_path.parent).parts) == 3
+    and skill_name not in platform_pack_set
+  )
 
-  missing_from_readme = sorted(set(core_skill_set) - set(documented_set))
+  missing_from_readme = sorted(set(catalog_required_skill_set) - set(documented_set))
   extra_in_readme = sorted(set(documented_set) - set(actual_set))
 
   if missing_from_readme:
