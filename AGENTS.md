@@ -21,15 +21,15 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
 
 ## Governed platform packs
 
-- Packs live under `platform-packs/` and are user-owned.
-- This repo ships `kotlin` and `kmp` as the first-party reference implementations for the governed pack model.
-- Each pack ships a manifest. The schema lives in the shell-content-contract playbook under `orchestration/`.
-- The current shell contract version is 1.0. Keep it locked across the shell and every pack; version drift must loud-fail.
-- Code-review content needs six contract H2s: Description, Specialist Scope, Inputs, Outputs Contract, Execution Mode Reporting, Telemetry Ceremony Hooks.
-- Quality-check content needs five contract H2s: Description, Execution Steps, Fix Strategy, Execution Mode Reporting, Telemetry Ceremony Hooks.
-- Missing manifest, wrong version, missing content file, or missing section must raise the named loud-fail exceptions. Do not add silent fallback.
-- Discovery is manifest-driven. The shells, routing playbook, and validator read `routing_signals` from pack manifests instead of hard-coding platform names.
-- `kmp` currently routes quality-check work to `kotlin`. `bill-feature-implement` and `bill-feature-verify` remain pre-shell.
+- Packs live under `platform-packs/`. Repo ships `kotlin` and `kmp` as first-party references.
+- Each pack ships a manifest per the shell-content-contract playbook under `orchestration/`.
+- The current shell contract version is 1.1 (SKILL-21); drift loud-fails pointing at `scripts/migrate_to_content_md.py`.
+- Code-review H2s: Description, Specialist Scope, Inputs, Outputs Contract, Execution, Execution Mode Reporting, Telemetry Ceremony Hooks.
+- Quality-check H2s: Description, Execution Steps, Fix Strategy, Execution, Execution Mode Reporting, Telemetry Ceremony Hooks.
+- SKILL.md is generated. Every governed skill has a sibling `content.md` holding the author-owned body; always edit `content.md` only.
+- Missing manifest, wrong version, missing file, missing section, missing `content.md`, or edited `## Execution` body must raise the named loud-fail exception.
+- Discovery is manifest-driven (`routing_signals`), not hard-coded.
+- `kmp` routes quality-check to `kotlin`. `bill-feature-implement`/`bill-feature-verify` remain pre-shell.
 
 ## Governed add-ons
 
@@ -54,29 +54,30 @@ skill-bill is a governed system for authoring, routing, validating, installing, 
 
 ## New-skill authoring
 
-- Use the scaffolder for all new skills: `skill-bill new-skill --payload <file>`, `--interactive`, or `/bill-skill-scaffold`.
-- Supported `kind` values:
-  - `horizontal`: create a canonical skill under `skills/`.
-  - `platform-override-piloted`: create the skill in the selected pack, updating its manifest; for `quality-check`, register `declared_quality_check_file`.
-  - `platform-override-piloted` for pre-shell families: create the skill in the platform's legacy `skills/` location and note that it will move when piloted.
-  - `code-review-area`: create the specialist in the selected pack and register the area.
-  - `add-on`: create a flat add-on file in the selected platform pack's `addons/` directory.
-- Pre-shell families are defined in `skill_bill/constants.py`; add the family there and in `skill_bill/scaffold.py` together.
-- Entry point: `skill_bill/scaffold.py`. Payload schema and exception catalog live in `orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md`.
-- The scaffolder is atomic. Validator, manifest-write, or symlink failures must roll the repo back byte-for-byte.
-- `## Execution Mode Reporting` and `## Telemetry Ceremony Hooks` come from a stored template and stay byte-identical within a family.
+- Use the scaffolder: `skill-bill new-skill --payload <file>`, `--interactive`, or `/bill-skill-scaffold`.
+- `kind` values: `horizontal`, `platform-override-piloted`, `code-review-area`, `platform-pack`, `add-on`. See `orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md` for the schema, `PRE_SHELL_FAMILIES` in `skill_bill/constants.py` for the pre-shell list, and `skill_bill/scaffold.py` for the entry point.
+- Scaffolder is atomic: validator, manifest-write, or symlink failures roll the repo back byte-for-byte (including the sibling `content.md`).
+- `## Execution`, `## Execution Mode Reporting`, `## Telemetry Ceremony Hooks` are stored templates and stay byte-identical within a family.
+- Optional `content_body` payload field: verbatim when present, deterministic placeholder when absent.
+
+## SKILL.md vs. content.md (v1.1)
+
+- SKILL.md: generated shell with version-stamped frontmatter and a byte-identical `## Execution` body.
+- `content.md`: free-form author-editable body. Open with `skill-bill edit <name>` (`$VISUAL` → `$EDITOR` → print path).
+- `skill-bill upgrade` regenerates stale shells and leaves `content.md` untouched. `skill-bill doctor` reports missing content.md (error) and template drift (warning).
+- Migrate v1.0 with `scripts/migrate_to_content_md.py` (idempotent, backup-first, per-skill rollback).
 
 ## Quality-check guidance
 
-Prefer routing through `bill-quality-check`. If a platform-specific checker does not exist yet, document the fallback explicitly. In the built-in set, `kmp` still falls back to `kotlin`.
+Prefer `bill-quality-check` routing. Always document an explicit fallback when a platform-specific checker is missing. `kmp` still falls back to `kotlin` in the built-in set.
 
-## Preferred design bias
+## Design bias
 
 - stable base commands
 - platform depth behind the router
 - explicit overrides
 - validator-backed rules
-- tests for acceptance and rejection paths
+- tests for accept + reject paths
 
 ## Validation commands
 

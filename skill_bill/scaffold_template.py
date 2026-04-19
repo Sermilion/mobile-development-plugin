@@ -21,10 +21,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
+from skill_bill.constants import (
+  SHELL_CONTRACT_VERSION,
+  TEMPLATE_VERSION,
+)
+from skill_bill.shell_content_contract import CANONICAL_EXECUTION_BODY
+
 
 # Compiled once at import-time because :func:`extract_scaffolder_owned`
 # is invoked from validator paths that may loop over hundreds of skill files.
 _SCAFFOLDER_OWNED_HEADINGS: tuple[str, ...] = (
+  "## Execution",
   "## Execution Mode Reporting",
   "## Telemetry Ceremony Hooks",
 )
@@ -148,6 +155,67 @@ def render_project_overrides(context: ScaffoldTemplateContext) -> str:
     "\n"
     f"Precedence for this skill: matching `.agents/skill-overrides.md` section > "
     "`AGENTS.md` > built-in defaults.\n"
+  )
+
+
+def render_execution_section(context: ScaffoldTemplateContext) -> str:
+  """Render the byte-identical ``## Execution`` section.
+
+  SKILL-21 added this required H2 whose body links every governed SKILL.md
+  to its sibling ``content.md``. The body is stored in
+  :data:`skill_bill.shell_content_contract.CANONICAL_EXECUTION_BODY` and is
+  byte-identical across every governed skill and family — the scaffolder,
+  the migration script, and the upgrade command all render this string
+  verbatim.
+  """
+  del context
+  return CANONICAL_EXECUTION_BODY
+
+
+def render_skill_frontmatter(
+  context: ScaffoldTemplateContext,
+  *,
+  description: str,
+) -> str:
+  """Render the v1.1 SKILL.md frontmatter block.
+
+  The frontmatter carries ``name``, ``description``, ``shell_contract_version``,
+  and ``template_version``. Keys are emitted in a stable order so rendered
+  shells are deterministic and diffable.
+  """
+  return (
+    "---\n"
+    f"name: {context.skill_name}\n"
+    f"description: {description}\n"
+    f"shell_contract_version: {SHELL_CONTRACT_VERSION}\n"
+    f"template_version: {TEMPLATE_VERSION}\n"
+    "---\n"
+  )
+
+
+def render_content_body(
+  context: ScaffoldTemplateContext,
+  *,
+  description: str,
+  content_body: str | None,
+) -> str:
+  """Render the sibling ``content.md`` body.
+
+  When the payload supplies ``content_body`` the scaffolder writes it
+  verbatim after trimming trailing whitespace and ensuring a single
+  trailing newline. When the payload omits it, a minimal deterministic
+  placeholder is emitted so the author has a starting point and the
+  validator still passes.
+  """
+  if content_body is not None and content_body.strip():
+    trimmed = content_body.rstrip()
+    return trimmed + "\n"
+  return (
+    f"# {context.skill_name}\n"
+    "\n"
+    f"{description}\n"
+    "\n"
+    f"TODO: author the skill body for `{context.skill_name}`.\n"
   )
 
 
@@ -447,6 +515,7 @@ _DEFAULT_SECTION_RENDERERS: dict[str, object] = {
   "## Specialist Scope": render_specialist_scope_section,
   "## Inputs": render_inputs_section,
   "## Outputs Contract": render_outputs_contract_section,
+  "## Execution": render_execution_section,
   "## Execution Mode Reporting": render_execution_mode_reporting,
   "## Telemetry Ceremony Hooks": render_telemetry_ceremony_hooks,
 }
@@ -502,14 +571,17 @@ __all__ = [
   "ScaffoldTemplateContext",
   "extract_scaffolder_owned",
   "infer_skill_description",
+  "render_content_body",
   "render_default_section",
   "render_delegated_mode_section",
   "render_description_section",
   "render_execution_mode_reporting",
+  "render_execution_section",
   "render_inline_mode_section",
   "render_inputs_section",
   "render_outputs_contract_section",
   "render_project_overrides",
+  "render_skill_frontmatter",
   "render_specialist_scope_section",
   "render_telemetry_ceremony_hooks",
 ]

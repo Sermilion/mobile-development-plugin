@@ -950,7 +950,10 @@ class ScaffolderOwnedSectionsIdenticalTest(unittest.TestCase):
     body_b = (specialist_b.skill_path / "SKILL.md").read_text(encoding="utf-8")
     owned_a = extract_scaffolder_owned(body_a)
     owned_b = extract_scaffolder_owned(body_b)
-    self.assertEqual(set(owned_a), {"## Execution Mode Reporting", "## Telemetry Ceremony Hooks"})
+    self.assertEqual(
+      set(owned_a),
+      {"## Execution", "## Execution Mode Reporting", "## Telemetry Ceremony Hooks"},
+    )
     self.assertEqual(owned_a, owned_b)
 
 
@@ -1078,6 +1081,180 @@ class AgentDetectionTest(unittest.TestCase):
       sorted(target.name for target in detected),
       sorted(install_module.SUPPORTED_AGENTS),
     )
+
+
+class ContentMdSiblingTest(unittest.TestCase):
+  """SKILL-21 AC 15(a): scaffolder writes both SKILL.md and content.md.
+
+  Every kind that produces a SKILL.md must also produce a sibling
+  ``content.md`` in the same directory. Add-on kind is exempt because it
+  writes a flat file.
+  """
+
+  def setUp(self) -> None:
+    self._tmpdir = tempfile.TemporaryDirectory()
+    self.addCleanup(self._tmpdir.cleanup)
+    self.tmp_path = Path(self._tmpdir.name)
+    self.repo = _build_seed_repo(self.tmp_path)
+    self._no_agents = _NoAgentsPatch()
+    self._no_agents.__enter__()
+    self.addCleanup(self._no_agents.__exit__, None, None, None)
+
+  def _payload(self, **overrides: object) -> dict:
+    payload: dict[str, object] = {
+      "scaffold_payload_version": "1.0",
+      "repo_root": str(self.repo),
+    }
+    payload.update(overrides)
+    return payload
+
+  def test_horizontal_writes_content_md_sibling(self) -> None:
+    scaffold(self._payload(kind="horizontal", name="bill-horizontal-content"))
+    skill_dir = self.repo / "skills" / "bill-horizontal-content"
+    self.assertTrue((skill_dir / "SKILL.md").is_file())
+    self.assertTrue((skill_dir / "content.md").is_file())
+
+  def test_code_review_area_writes_content_md_sibling(self) -> None:
+    scaffold(
+      self._payload(
+        kind="code-review-area",
+        name="bill-kotlin-code-review-performance",
+        platform="kotlin",
+        area="performance",
+      )
+    )
+    skill_dir = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review-performance"
+    )
+    self.assertTrue((skill_dir / "SKILL.md").is_file())
+    self.assertTrue((skill_dir / "content.md").is_file())
+
+  def test_platform_pack_writes_content_md_for_every_generated_skill(self) -> None:
+    scaffold(
+      self._payload(
+        kind="platform-pack",
+        platform="java",
+        skeleton_mode="starter",
+      )
+    )
+    baseline_dir = (
+      self.repo / "platform-packs" / "java" / "code-review" / "bill-java-code-review"
+    )
+    quality_dir = (
+      self.repo / "platform-packs" / "java" / "quality-check" / "bill-java-quality-check"
+    )
+    feature_implement_dir = self.repo / "skills" / "java" / "bill-java-feature-implement"
+    feature_verify_dir = self.repo / "skills" / "java" / "bill-java-feature-verify"
+    for directory in [
+      baseline_dir,
+      quality_dir,
+      feature_implement_dir,
+      feature_verify_dir,
+    ]:
+      self.assertTrue((directory / "SKILL.md").is_file(), directory)
+      self.assertTrue((directory / "content.md").is_file(), directory)
+
+  def test_add_on_kind_does_not_get_content_md(self) -> None:
+    scaffold(
+      self._payload(kind="add-on", name="android-new-addon", platform="kmp")
+    )
+    addon_path = self.repo / "platform-packs" / "kmp" / "addons" / "android-new-addon.md"
+    self.assertTrue(addon_path.is_file())
+    self.assertFalse(addon_path.with_name("content.md").exists())
+
+  def test_content_body_present_written_verbatim(self) -> None:
+    body = (
+      "# My skill body\n"
+      "\n"
+      "Reviews a specific thing.\n"
+      "\n"
+      "- Step 1\n"
+      "- Step 2\n"
+    )
+    scaffold(
+      self._payload(
+        kind="horizontal",
+        name="bill-horizontal-verbatim",
+        content_body=body,
+      )
+    )
+    content_path = self.repo / "skills" / "bill-horizontal-verbatim" / "content.md"
+    self.assertEqual(content_path.read_text(encoding="utf-8"), body)
+
+  def test_content_body_absent_writes_placeholder(self) -> None:
+    scaffold(
+      self._payload(kind="horizontal", name="bill-horizontal-placeholder")
+    )
+    content_path = self.repo / "skills" / "bill-horizontal-placeholder" / "content.md"
+    text = content_path.read_text(encoding="utf-8")
+    self.assertIn("bill-horizontal-placeholder", text)
+    self.assertIn("TODO", text)
+
+  def test_scaffold_template_is_deterministic(self) -> None:
+    first = scaffold(
+      self._payload(kind="horizontal", name="bill-horizontal-deterministic-a")
+    )
+    second_repo = _build_seed_repo(self.tmp_path / "second")
+    second = scaffold(
+      {
+        "scaffold_payload_version": "1.0",
+        "kind": "horizontal",
+        "name": "bill-horizontal-deterministic-a",
+        "repo_root": str(second_repo),
+      }
+    )
+    first_body = (first.skill_path / "SKILL.md").read_bytes()
+    second_body = (second.skill_path / "SKILL.md").read_bytes()
+    self.assertEqual(first_body, second_body)
+
+
+class ContentMdRollbackTest(unittest.TestCase):
+  """SKILL-21 AC 15(a): rollback removes both siblings on validator failure."""
+
+  def setUp(self) -> None:
+    self._tmpdir = tempfile.TemporaryDirectory()
+    self.addCleanup(self._tmpdir.cleanup)
+    self.tmp_path = Path(self._tmpdir.name)
+    self.repo = _build_seed_repo(self.tmp_path)
+    self._no_agents = _NoAgentsPatch()
+    self._no_agents.__enter__()
+    self.addCleanup(self._no_agents.__exit__, None, None, None)
+
+  def test_rollback_removes_content_md_alongside_skill_md(self) -> None:
+    pre_snapshot = _snapshot_tree(self.repo)
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+      raise ScaffoldValidatorError("simulated validator failure")
+
+    payload = {
+      "scaffold_payload_version": "1.0",
+      "kind": "code-review-area",
+      "name": "bill-kotlin-code-review-performance",
+      "platform": "kotlin",
+      "area": "performance",
+      "repo_root": str(self.repo),
+    }
+
+    with mock.patch.object(scaffold_module, "_run_validator", side_effect=boom):
+      with self.assertRaises(ScaffoldValidatorError):
+        scaffold(payload)
+
+    post_snapshot = _snapshot_tree(self.repo)
+    self.assertEqual(pre_snapshot, post_snapshot)
+    # Explicitly confirm both files are gone:
+    skill_dir = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review-performance"
+    )
+    self.assertFalse((skill_dir / "SKILL.md").exists())
+    self.assertFalse((skill_dir / "content.md").exists())
 
 
 if __name__ == "__main__":

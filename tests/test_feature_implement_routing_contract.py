@@ -35,7 +35,17 @@ from skill_repo_contracts import (  # noqa: E402
 
 
 def read(relative_path: str) -> str:
-  return (ROOT / relative_path).read_text(encoding="utf-8")
+  # SKILL-21: every governed SKILL.md now has a sibling ``content.md`` with
+  # the author prose. Tests that reason about skill behavior inspect the
+  # combined text so post-migration content still satisfies the assertions
+  # that were written against v1.0 single-file shells.
+  path = ROOT / relative_path
+  text = path.read_text(encoding="utf-8")
+  if path.name == "SKILL.md":
+    content_md = path.parent / "content.md"
+    if content_md.is_file():
+      text = text + "\n" + content_md.read_text(encoding="utf-8")
+  return text
 
 
 FEATURE_IMPLEMENT = read("skills/bill-feature-implement/SKILL.md") + "\n" + read("skills/bill-feature-implement/reference.md")
