@@ -218,6 +218,42 @@ class UpgradeCommandTest(unittest.TestCase):
     )
     self.assertEqual(content_file.read_bytes(), original_content)
 
+  def test_upgrade_adds_project_overrides_when_previously_missing(self) -> None:
+    """SKILL-21 follow-up: a platform-pack SKILL.md that pre-dates the
+    template bump is missing ``## Project Overrides`` in its body.
+    ``skill-bill upgrade`` regenerates it from the current template and
+    must now include the ceremony heading alongside a reference to
+    ``.agents/skill-overrides.md``.
+    """
+    skill_file = self.skill_dir / "SKILL.md"
+    pre_missing_body = (
+      "---\n"
+      "name: bill-fixture-code-review\n"
+      "description: Fixture.\n"
+      f"shell_contract_version: 1.1\n"
+      "template_version: 2020.01.01\n"
+      "---\n"
+      "\n"
+      "## Description\nFixture.\n\n"
+      "## Specialist Scope\nFixture.\n\n"
+      "## Inputs\nFixture.\n\n"
+      "## Outputs Contract\nFixture.\n\n"
+      + CANONICAL_EXECUTION_BODY
+      + "\n"
+      "## Execution Mode Reporting\nFixture.\n\n"
+      "## Telemetry Ceremony Hooks\nFixture.\n"
+    )
+    skill_file.write_text(pre_missing_body, encoding="utf-8")
+    self.assertNotIn("## Project Overrides", skill_file.read_text(encoding="utf-8"))
+
+    cli.upgrade_skills_command(
+      argparse.Namespace(dry_run=False, skill=None, yes=True)
+    )
+
+    upgraded = skill_file.read_text(encoding="utf-8")
+    self.assertIn("## Project Overrides", upgraded)
+    self.assertIn(".agents/skill-overrides.md", upgraded)
+
   def test_upgrade_rolls_back_skill_md_on_validator_failure(self) -> None:
     """AC 8: validator failure during upgrade rolls SKILL.md back byte-for-byte.
 

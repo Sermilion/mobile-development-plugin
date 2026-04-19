@@ -1,11 +1,3 @@
-## Project Overrides
-
-If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kmp-code-review` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
-
-If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
-
-Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults. Pass relevant project-wide guidance and matching per-skill overrides to every delegated or inline specialist review pass.
-
 ## Setup
 
 Determine the review scope:
@@ -171,38 +163,12 @@ Every finding in `### 2. Risk Register` must use this exact bullet format (do NO
 
 Severity: `Blocker | Major | Minor`. Confidence: `High | Medium | Low`.
 
-### Telemetry
-
-For telemetry ownership, triage ownership, and the `orchestrated` flag contract, follow [telemetry-contract.md](telemetry-contract.md).
-
-For action items, verdict format, merge rules, and review principles, follow [review-orchestrator.md](review-orchestrator.md).
+For telemetry ownership, triage ownership, and the `orchestrated` flag contract, follow [telemetry-contract.md](telemetry-contract.md). For action items, verdict format, merge rules, and review principles, follow [review-orchestrator.md](review-orchestrator.md).
 
 ### Implementation Mode Notes
 
 - If invoked from `bill-feature-implement`, `bill-feature-verify`, or another orchestration skill, do not pause for user selection. Return prioritized findings so the caller can auto-fix P0/P1 items and decide whether to carry Minor items forward.
 - After all P0 and P1 items are resolved, run `bill-quality-check` as final verification when the project uses a routed quality-check path and this review is being run standalone.
-
-## Description
-This content file is a platform-pack baseline review module for `bill-kmp-code-review`. The
-governed shell (`bill-code-review`) delegates single-stack reviews here after
-stack routing settles. The sections above define the operational playbook; the
-sections below satisfy the shell+content contract v1.0.
-
-## Specialist Scope
-Baseline orchestrator. Selects and coordinates specialist area reviewers
-declared under the platform pack's `declared_code_review_areas` and returns a
-merged review.
-
-## Inputs
-Review scope (staged/unstaged/commit range/PR), changed files, detected stack
-signals, active learnings, `review_session_id`, `review_run_id`, and the
-`orchestrated` flag from the shell.
-
-## Outputs Contract
-Summary, Risk Register with findings of the form
-`- [F-###] <Severity> | <Confidence> | <file:line> | <description>`,
-Action Items, and Verdict (`approve`, `approve-with-changes`, or
-`request-changes`). The output layer follows the shell's structured format.
 
 ## Delegated Mode
 

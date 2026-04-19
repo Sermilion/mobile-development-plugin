@@ -2,8 +2,16 @@
 name: bill-kotlin-quality-check
 description: Run ./gradlew check and systematically fix all issues without using suppressions. Use when running Gradle checks, fixing lint errors, formatting issues, test failures, or deprecation warnings in Gradle/Kotlin projects. Fixes issues properly at the root cause instead of suppressing them. Use when user mentions gradlew check, Kotlin lint, ktfmt, detekt, or fix Gradle warnings.
 shell_contract_version: 1.1
-template_version: 2026.04.19
+template_version: 2026.04.19.3
 ---
+
+## Project Overrides
+
+If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kotlin-quality-check` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
+
+If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
+
+Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults.
 
 ## Description
 

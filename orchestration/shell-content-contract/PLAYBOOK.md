@@ -54,6 +54,13 @@ v1.1 splits the governance shell from the author-owned skill body:
   drift is upgrade-actionable only (not a runtime failure).
 - `content.md` has no H2 requirement, no frontmatter requirement, and no
   minimum length. The loader validates only that it exists.
+- `## Project Overrides` is shell governance, not author content. The
+  section records the overrides precedence rule (per-skill overrides >
+  project-wide overrides > built-in defaults) and lives in SKILL.md for
+  every governed skill, including platform-pack baselines,
+  code-review-area specialists, and shelled quality-check overrides.
+  Authors must not copy the heading into `content.md`; the migration
+  script and scaffolder refuse to emit it there.
 
 ## Required Platform Manifest (`platform.yaml`)
 

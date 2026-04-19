@@ -14,14 +14,6 @@
 
 Use this specialist for shared Kotlin architectural concerns across libraries, app layers, and backend services. Favor findings that remain true regardless of runtime platform; let route-specific specialists own UI-framework concerns and backend transport or persistence-only details.
 
-## Project Overrides
-
-If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kotlin-code-review-architecture` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
-
-If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
-
-Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults.
-
 ## Project-Specific Rules
 
 ### Shared Kotlin Architecture
@@ -53,21 +45,3 @@ Every finding must use this exact bullet format for downstream tooling:
 ```
 
 Do NOT use markdown tables, numbered lists, or any other format for findings.
-
-## Description
-This content file is a platform-pack specialist area review module for
-`bill-kotlin-code-review-architecture`. The baseline orchestrator delegates a single specialist area here.
-The sections above define the specialist playbook; the sections below satisfy
-the shell+content contract v1.0.
-
-## Specialist Scope
-Scoped to one approved code-review area. Does not cover other areas.
-
-## Inputs
-Review scope, changed files, detected stack signals, active learnings,
-`review_session_id`, `review_run_id`, and the `orchestrated` flag.
-
-## Outputs Contract
-Findings in the shared Risk Register format
-`- [F-###] <Severity> | <Confidence> | <file:line> | <description>`, plus
-specialist-specific action items consumed by the baseline orchestrator.

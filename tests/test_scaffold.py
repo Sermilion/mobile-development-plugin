@@ -246,11 +246,14 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
       "performance: code-review/bill-kotlin-code-review-performance/SKILL.md",
       manifest,
     )
-    # F-001: platform-pack skills go through the lighter
-    # validate_platform_pack_skill_file and intentionally do NOT get the
-    # Project Overrides boilerplate — keep them lean.
+    # SKILL-21 follow-up: platform-pack SKILL.md files now render
+    # ``## Project Overrides`` as shell governance (previously the section
+    # leaked into ``content.md`` via the migration). It stays next to the
+    # shell so overrides precedence lives in SKILL.md, not in the
+    # author-owned content body.
     body = skill_md.read_text(encoding="utf-8")
-    self.assertNotIn("## Project Overrides", body)
+    self.assertIn("## Project Overrides", body)
+    self.assertIn(".agents/skill-overrides.md", body)
 
   def test_platform_pack(self) -> None:
     result = scaffold(
@@ -301,13 +304,17 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertIn("[review-orchestrator.md](review-orchestrator.md)", review_body)
     self.assertIn("[review-delegation.md](review-delegation.md)", review_body)
     self.assertIn("[telemetry-contract.md](telemetry-contract.md)", review_body)
-    self.assertNotIn("## Project Overrides", review_body)
+    # SKILL-21 follow-up: platform-pack shells now carry Project Overrides
+    # as governance ceremony instead of leaking it into content.md.
+    self.assertIn("## Project Overrides", review_body)
+    self.assertIn(".agents/skill-overrides.md", review_body)
 
     self.assertIn("## Additional Resources", quality_body)
     self.assertIn("[stack-routing.md](stack-routing.md)", quality_body)
     self.assertIn("[telemetry-contract.md](telemetry-contract.md)", quality_body)
     self.assertNotIn("## Specialist Scope", quality_body)
     self.assertNotIn("## Outputs Contract", quality_body)
+    self.assertIn("## Project Overrides", quality_body)
     self.assertIn("## Project Overrides", feature_implement_body)
     self.assertIn("## Project Overrides", feature_verify_body)
     self.assertTrue(
@@ -374,6 +381,50 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertEqual(result.kind, "add-on")
     addon_md = self.repo / "platform-packs" / "kmp" / "addons" / "android-new-addon.md"
     self.assertTrue(addon_md.is_file())
+    # Add-ons are supporting-file markdown, not governance shells; they must
+    # NOT receive the Project Overrides ceremony. The shell they plug into
+    # already carries it.
+    self.assertNotIn("## Project Overrides", addon_md.read_text(encoding="utf-8"))
+
+  def test_platform_pack_skills_carry_project_overrides(self) -> None:
+    """SKILL-21 follow-up: every scaffolded platform-pack SKILL.md renders
+    ``## Project Overrides`` as shell governance, keeping overrides
+    precedence in SKILL.md instead of leaking into content.md.
+
+    Covers: platform-pack (baseline code-review + shelled quality-check),
+    code-review-area specialists, and shelled quality-check overrides.
+    """
+    scaffold(
+      self._payload(
+        kind="platform-pack",
+        platform="java",
+        skeleton_mode="full",
+      )
+    )
+    pack_root = self.repo / "platform-packs" / "java"
+
+    baseline_body = (pack_root / "code-review" / "bill-java-code-review" / "SKILL.md").read_text(
+      encoding="utf-8"
+    )
+    quality_body = (
+      pack_root / "quality-check" / "bill-java-quality-check" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    for body in (baseline_body, quality_body):
+      self.assertIn("## Project Overrides", body)
+      self.assertIn(".agents/skill-overrides.md", body)
+
+    for area in sorted(scaffold_module.APPROVED_CODE_REVIEW_AREAS):
+      specialist_body = (
+        pack_root / "code-review" / f"bill-java-code-review-{area}" / "SKILL.md"
+      ).read_text(encoding="utf-8")
+      self.assertIn("## Project Overrides", specialist_body)
+      self.assertIn(".agents/skill-overrides.md", specialist_body)
+      # Ceremony must NOT leak into the sibling content.md. content.md is
+      # author-owned and never carries overrides precedence.
+      specialist_content = (
+        pack_root / "code-review" / f"bill-java-code-review-{area}" / "content.md"
+      ).read_text(encoding="utf-8")
+      self.assertNotIn("## Project Overrides", specialist_content)
 
   def test_description_section_inferred_no_todo(self) -> None:
     """Default `## Description` bodies must be seeded from family/platform/area
@@ -621,9 +672,11 @@ class ScaffoldHappyPathsTest(unittest.TestCase):
     self.assertIn("## Telemetry Ceremony Hooks", body)
     self.assertNotIn("## Specialist Scope", body)
     self.assertNotIn("## Outputs Contract", body)
-    # Platform-pack skills go through the lighter validator and do not get
-    # Project Overrides boilerplate — keep them lean.
-    self.assertNotIn("## Project Overrides", body)
+    # SKILL-21 follow-up: shelled platform-pack skills now carry Project
+    # Overrides so overrides precedence lives in SKILL.md instead of
+    # leaking into content.md.
+    self.assertIn("## Project Overrides", body)
+    self.assertIn(".agents/skill-overrides.md", body)
 
   def test_shelled_quality_check_rollback_on_manifest_write_failure(self) -> None:
     """SKILL-16: manifest-write failure for quality-check must roll back atomically."""

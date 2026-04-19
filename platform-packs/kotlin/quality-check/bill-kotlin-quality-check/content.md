@@ -1,4 +1,4 @@
-## Description
+## Overview
 
 Run `./gradlew check` (or the repo's equivalent wrapper) against the current Gradle/Kotlin project and systematically fix every structural, formatting, lint, deprecation, logic, or test failure touched by the current unit of work without suppressing or deferring issues. This is the `kotlin` leaf behind the shared `bill-quality-check` shell; the shell routes into this pack via the `declared_quality_check_file` manifest key on the `kotlin` platform pack, and it is also the fallback route for `kmp` work today.
 
@@ -7,7 +7,7 @@ Run `./gradlew check` (or the repo's equivalent wrapper) against the current Gra
 - For shared stack-routing signals and tie-breakers, see [stack-routing.md](stack-routing.md).
 - For the shared telemetry contract, see [telemetry-contract.md](telemetry-contract.md).
 
-## Execution Steps
+## Procedure
 
 1. **Determine changed files**: Use `git diff --name-only` (against the base branch or HEAD) to identify files changed in the current unit of work
 2. **Run initial check**: Execute `./gradlew check` and capture complete output
@@ -21,15 +21,15 @@ Run `./gradlew check` (or the repo's equivalent wrapper) against the current Gra
 5. **Verify fixes**: Re-run `./gradlew check` after all fixes
 6. **Iterate if needed**: If new issues appear, repeat the process
 
-## Fix Strategy
+## How To Fix
 
 **Always Fix, Never Suppress:**
-- ❌ Never use `@Suppress`, `@SuppressWarnings`, or lint suppressions
-- ❌ Never add `// TODO` or `// FIXME` comments to defer issues
-- ❌ Never use `#pragma` or similar directives to hide issues
-- ✅ Implement proper solutions that address the root cause
-- ✅ Refactor code to eliminate warnings
-- ✅ Add missing tests or fix failing ones
+- Never use `@Suppress`, `@SuppressWarnings`, or lint suppressions
+- Never add `// TODO` or `// FIXME` comments to defer issues
+- Never use `#pragma` or similar directives to hide issues
+- Implement proper solutions that address the root cause
+- Refactor code to eliminate warnings
+- Add missing tests or fix failing ones
 
 **Priority Order:**
 0. Structural issues (package/file location, file naming) - **Fix these first**
@@ -63,14 +63,6 @@ These issues require file operations and should be fixed before other issues:
 - Test failures where business logic is unclear
 - Security-related issues requiring policy decisions
 - When multiple valid fix approaches exist with trade-offs
-
-## Project Overrides
-
-If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kotlin-quality-check` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
-
-If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
-
-Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults.
 
 ## Code Style Guidelines
 

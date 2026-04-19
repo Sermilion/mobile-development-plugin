@@ -2,8 +2,16 @@
 name: bill-kmp-code-review-ux-accessibility
 description: Use when reviewing UX correctness and accessibility risks, delegating UI-framework-heavy checks to bill-kmp-code-review-ui. Use when user mentions UX review, accessibility, content description, screen reader, or localization review.
 shell_contract_version: 1.1
-template_version: 2026.04.19
+template_version: 2026.04.19.3
 ---
+
+## Project Overrides
+
+If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kmp-code-review-ux-accessibility` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
+
+If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
+
+Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults.
 
 ## Description
 

@@ -679,13 +679,13 @@ def _render_skill_body(plan: dict[str, Any], payload: dict) -> str:
   front_matter = render_skill_frontmatter(context, description=description)
 
   sections: list[str] = []
-  # Skills that land under ``skills/`` (horizontal + pre-shell platform
-  # overrides) are validated by ``validate_skill_file``, which requires the
-  # ``## Project Overrides`` heading and a reference to
-  # ``.agents/skill-overrides.md``. Platform-pack skills go through the
-  # lighter ``validate_platform_pack_skill_file`` and intentionally skip it
-  # to keep platform-pack skills lean.
-  if not plan["is_shelled"] and plan["kind"] != SKILL_KIND_ADD_ON:
+  # ``## Project Overrides`` is shell governance, not author content.
+  # Every governed SKILL.md (under ``skills/`` or ``platform-packs/``) emits
+  # it so overrides precedence lives next to the shell and never leaks into
+  # the author-owned ``content.md``. Add-ons are raw markdown supporting
+  # files and do not receive the section — the shell they plug into already
+  # carries it.
+  if plan["kind"] != SKILL_KIND_ADD_ON:
     sections.append(render_project_overrides(context))
   required_sections = (
     REQUIRED_QUALITY_CHECK_SECTIONS

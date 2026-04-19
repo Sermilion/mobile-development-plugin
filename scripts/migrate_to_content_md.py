@@ -58,6 +58,7 @@ from skill_bill.scaffold_template import (  # noqa: E402
 )
 from skill_bill.shell_content_contract import (  # noqa: E402
   CANONICAL_EXECUTION_BODY,
+  CEREMONY_SECTIONS,
   CONTENT_BODY_FILENAME,
   REQUIRED_CONTENT_SECTIONS,
   REQUIRED_QUALITY_CHECK_SECTIONS,
@@ -177,21 +178,22 @@ def _extract_author_content(
 ) -> tuple[str, int, int]:
   """Split a v1.0 SKILL.md into (content_body, free_form_count, edited_count).
 
-  - Free-form H2s (anything not in the family's required set) always go
-    into content.md.
-  - Required H2s that differ from the current scaffolder default are also
-    appended so author edits are preserved.
-  - Scaffolder-owned sections (``## Execution Mode Reporting``,
-    ``## Telemetry Ceremony Hooks``, ``## Execution``) are skipped.
+  - Free-form H2s (anything not in the family's required set and not in
+    :data:`CEREMONY_SECTIONS`) flow into content.md so authored prose
+    survives.
+  - Required H2s whose body diverges from the current scaffolder default
+    are also appended so author edits are preserved. Pre-SKILL-21 v1.0
+    packs used a different default body; the ceremony-leakage fix
+    tightens this check to compare against the current rendered default,
+    so unedited v1.0 defaults do not leak into ``content.md``.
+  - Ceremony sections (:data:`CEREMONY_SECTIONS`) are shell-owned and
+    never copied to ``content.md``. The shell regeneration step emits
+    them afresh.
   """
   from skill_bill.scaffold_template import render_default_section
 
   required_for_family = REQUIRED_SECTIONS_BY_FAMILY[family]
-  scaffolder_owned = {
-    "## Execution Mode Reporting",
-    "## Telemetry Ceremony Hooks",
-    "## Execution",
-  }
+  ceremony_headings = set(CEREMONY_SECTIONS)
 
   frontmatter = parse_skill_frontmatter(skill_file)
   plan = infer_plan_from_skill_file(skill_file, frontmatter)
@@ -208,18 +210,14 @@ def _extract_author_content(
   free_form = 0
   edited = 0
   for heading, body in sections:
-    if heading in scaffolder_owned:
+    if heading in ceremony_headings:
       continue
     if heading not in required_for_family:
       kept.append(body.rstrip() + "\n")
       free_form += 1
       continue
     default_body = render_default_section(heading, context)
-    if strict:
-      matches = body.strip() == default_body.strip()
-    else:
-      matches = _normalize_body(body) == _normalize_body(default_body)
-    if matches:
+    if _matches_template_default(body, default_body, strict=strict):
       continue
     kept.append(body.rstrip() + "\n")
     edited += 1
@@ -231,6 +229,20 @@ def _extract_author_content(
 
   content_text = "\n".join(kept).rstrip() + "\n"
   return content_text, free_form, edited
+
+
+def _matches_template_default(body: str, default_body: str, *, strict: bool) -> bool:
+  """Return True when ``body`` matches the current template default.
+
+  Used by :func:`_extract_author_content` to decide whether a required H2
+  body counts as an author edit. In strict mode we require a byte match
+  after stripping; in non-strict mode we collapse whitespace so prose
+  reflows (e.g. line-wrap differences introduced by formatters) do not
+  spuriously classify an unedited default as an author edit.
+  """
+  if strict:
+    return body.strip() == default_body.strip()
+  return _normalize_body(body) == _normalize_body(default_body)
 
 
 def _create_backup(backup_dir: Path, skill_file: Path, repo_root: Path) -> None:

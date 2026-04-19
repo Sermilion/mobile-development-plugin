@@ -1,11 +1,3 @@
-## Project Overrides
-
-If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kmp-code-review-ui` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
-
-If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
-
-Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults.
-
 ## Compose Review Rubric
 
 The canonical KMP UI review command stays `bill-kmp-code-review-ui`. Governed add-ons apply only after the parent review has already routed to `kmp`.
@@ -56,21 +48,3 @@ Before considering a composable done, verify:
 - [ ] `Modifier.testTag` on key interactive elements
 - [ ] No unnecessary decomposition — extractions have a reason
 - [ ] File organization: screen → helpers → previews (top to bottom)
-
-## Description
-This content file is a platform-pack specialist area review module for
-`bill-kmp-code-review-ui`. The baseline orchestrator delegates a single specialist area here.
-The sections above define the specialist playbook; the sections below satisfy
-the shell+content contract v1.0.
-
-## Specialist Scope
-Scoped to one approved code-review area. Does not cover other areas.
-
-## Inputs
-Review scope, changed files, detected stack signals, active learnings,
-`review_session_id`, `review_run_id`, and the `orchestrated` flag.
-
-## Outputs Contract
-Findings in the shared Risk Register format
-`- [F-###] <Severity> | <Confidence> | <file:line> | <description>`, plus
-specialist-specific action items consumed by the baseline orchestrator.

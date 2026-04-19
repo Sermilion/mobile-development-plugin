@@ -54,6 +54,14 @@ name: bill-kotlin-code-review
 description: Fixture legacy shell.
 ---
 
+## Project Overrides
+
+If `.agents/skill-overrides.md` exists in the project root and contains a `## bill-kotlin-code-review` section, read that section and apply it as the highest-priority instruction for this skill. The matching section may refine or replace parts of the default workflow below.
+
+If an `AGENTS.md` file exists in the project root, apply it as project-wide guidance.
+
+Precedence for this skill: matching `.agents/skill-overrides.md` section > `AGENTS.md` > built-in defaults.
+
 ## Description
 Author-edited Kotlin review description.
 
@@ -270,6 +278,100 @@ class MigrationCoverageTest(unittest.TestCase):
       self.repo, force=False, strict=True, yes=True
     )
     self.assertTrue(any(entry.status == "migrated" for entry in report.migrations))
+
+  def test_migration_never_copies_project_overrides_ceremony(self) -> None:
+    """Ceremony-leakage fix: `## Project Overrides` is shell governance.
+
+    The v1.0 SKILL.md fixture above carries a ``## Project Overrides``
+    section. The migration script MUST drop it on the floor rather than
+    copy it into content.md — the regenerated SKILL.md emits it from
+    the template instead.
+    """
+    migrate_to_content_md.migrate(self.repo, force=False, strict=False, yes=True)
+    baseline_content = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review"
+      / "content.md"
+    ).read_text(encoding="utf-8")
+    self.assertNotIn("## Project Overrides", baseline_content)
+    self.assertNotIn(".agents/skill-overrides.md", baseline_content)
+    baseline_shell = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review"
+      / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    self.assertIn("## Project Overrides", baseline_shell)
+    self.assertIn(".agents/skill-overrides.md", baseline_shell)
+
+  def test_migration_skips_required_sections_matching_current_template(self) -> None:
+    """Ceremony-leakage fix: required H2 bodies that match the current
+    scaffolder default are NOT copied into content.md.
+
+    AC 11 step 3 of the pre-fix migration script compared the body against
+    the pre-migration SKILL.md state and classified v1.0 template
+    defaults as author edits, leaking them into content.md. The fix
+    tightens the comparison to the current template's rendered output
+    for each slot so unedited defaults stay out of content.md.
+    """
+    from skill_bill.scaffold_template import (
+      ScaffoldTemplateContext,
+      render_default_section,
+    )
+
+    context = ScaffoldTemplateContext(
+      skill_name="bill-kotlin-code-review-architecture",
+      family="code-review",
+      platform="kotlin",
+      area="architecture",
+      display_name="Kotlin",
+    )
+    description_default = render_default_section("## Description", context)
+    specialist_default = render_default_section("## Specialist Scope", context)
+    inputs_default = render_default_section("## Inputs", context)
+    outputs_default = render_default_section("## Outputs Contract", context)
+
+    v1_0_area_with_template_defaults = (
+      "---\n"
+      "name: bill-kotlin-code-review-architecture\n"
+      "description: Fixture area using current template defaults.\n"
+      "---\n"
+      "\n"
+      + description_default
+      + "\n"
+      + specialist_default
+      + "\n"
+      + inputs_default
+      + "\n"
+      + outputs_default
+      + "\n"
+      "## Execution Mode Reporting\n"
+      "Fixture execution mode reporting.\n"
+      "\n"
+      "## Telemetry Ceremony Hooks\n"
+      "Fixture telemetry hooks.\n"
+    )
+    area_dir = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review-architecture"
+    )
+    (area_dir / "SKILL.md").write_text(v1_0_area_with_template_defaults, encoding="utf-8")
+
+    migrate_to_content_md.migrate(self.repo, force=True, strict=False, yes=True)
+
+    area_content = (area_dir / "content.md").read_text(encoding="utf-8")
+    self.assertNotIn("## Description", area_content)
+    self.assertNotIn("## Specialist Scope", area_content)
+    self.assertNotIn("## Inputs", area_content)
+    self.assertNotIn("## Outputs Contract", area_content)
 
 
 if __name__ == "__main__":

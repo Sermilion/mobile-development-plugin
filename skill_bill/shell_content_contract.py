@@ -101,6 +101,24 @@ CANONICAL_EXECUTION_BODY: str = (
   "Follow the instructions in [content.md](content.md).\n"
 )
 
+# Ceremony H2 sections that belong to the governance shell, not the
+# author-owned content body. The migration script and the scaffolder must
+# never copy these sections into ``content.md`` — they live in SKILL.md
+# exclusively. The tuple is deliberately explicit so reviewers can audit
+# which headings are ceremony in one place.
+#
+# - ``## Project Overrides`` encodes the overrides-precedence rule.
+# - ``## Execution`` links the shell to the sibling content.md.
+# - ``## Execution Mode Reporting`` + ``## Telemetry Ceremony Hooks`` are
+#   the scaffolder-owned ceremony sections emitted byte-identically across
+#   a family.
+CEREMONY_SECTIONS: tuple[str, ...] = (
+  "## Project Overrides",
+  "## Execution",
+  "## Execution Mode Reporting",
+  "## Telemetry Ceremony Hooks",
+)
+
 # Filename of the author-owned content body that must sit next to every
 # governed SKILL.md under v1.1. The loader raises
 # :class:`MissingContentBodyFileError` when the sibling is missing.
@@ -778,6 +796,7 @@ def _collect_top_level_h2_headings(text: str) -> set[str]:
 __all__ = [
   "APPROVED_CODE_REVIEW_AREAS",
   "CANONICAL_EXECUTION_BODY",
+  "CEREMONY_SECTIONS",
   "CONTENT_BODY_FILENAME",
   "ContractVersionMismatchError",
   "InvalidExecutionSectionError",
