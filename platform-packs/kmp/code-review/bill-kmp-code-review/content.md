@@ -66,7 +66,7 @@ Analyze the diff and select KMP-specific specialists beyond the baseline:
 - Pass any selected governed add-ons into the chosen KMP specialist review passes
 
 | Signal in the diff | Specialist review to run |
-|---------------------|--------------------------|
+| --- | --- |
 | `@Composable` functions, UI state classes, Modifier chains, `remember`, `LaunchedEffect` | `bill-kmp-code-review-ui` |
 | User-facing UI changes, `stringResource`, accessibility attributes, navigation, error states, localization files | `bill-kmp-code-review-ux-accessibility` |
 
