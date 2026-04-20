@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+import importlib.util
 import json
+import os
 from pathlib import Path
+import shlex
+import subprocess
 import sys
 
 from skill_bill import __version__
@@ -60,6 +65,17 @@ from skill_bill.triage import (
   parse_triage_decisions,
   record_feedback,
 )
+
+
+@dataclass(frozen=True)
+class GovernedSkillTarget:
+  skill_name: str
+  package: str
+  platform: str
+  family: str
+  area: str
+  skill_file: Path
+  content_file: Path
 
 
 def import_review_command(args: argparse.Namespace) -> int:
@@ -506,6 +522,310 @@ def _platform_pack_exists(platform: str, *, repo_root: Path | None = None) -> bo
   return (root / "platform-packs" / platform / "platform.yaml").exists()
 
 
+def _discover_platform_pack_slugs(repo_root: Path) -> set[str]:
+  from skill_bill.shell_content_contract import discover_platform_pack_manifests
+
+  return {
+    pack.slug
+    for pack in discover_platform_pack_manifests(repo_root / "platform-packs")
+  }
+
+
+def _discover_governed_skill_targets(repo_root: Path) -> dict[str, GovernedSkillTarget]:
+  from skill_bill.shell_content_contract import discover_platform_pack_manifests
+
+  discovered: dict[str, GovernedSkillTarget] = {}
+  for pack in discover_platform_pack_manifests(repo_root / "platform-packs"):
+    baseline_path = pack.declared_files.get("baseline")
+    if isinstance(baseline_path, Path):
+      discovered[baseline_path.parent.name] = GovernedSkillTarget(
+        skill_name=baseline_path.parent.name,
+        package=pack.slug,
+        platform=pack.slug,
+        family="code-review",
+        area="",
+        skill_file=baseline_path,
+        content_file=baseline_path.with_name("content.md"),
+      )
+    area_paths = pack.declared_files.get("areas", {})
+    if isinstance(area_paths, dict):
+      for area, skill_file in area_paths.items():
+        discovered[skill_file.parent.name] = GovernedSkillTarget(
+          skill_name=skill_file.parent.name,
+          package=pack.slug,
+          platform=pack.slug,
+          family="code-review",
+          area=area,
+          skill_file=skill_file,
+          content_file=skill_file.with_name("content.md"),
+        )
+    if pack.declared_quality_check_file is not None:
+      quality_check_skill = pack.declared_quality_check_file
+      discovered[quality_check_skill.parent.name] = GovernedSkillTarget(
+        skill_name=quality_check_skill.parent.name,
+        package=pack.slug,
+        platform=pack.slug,
+        family="quality-check",
+        area="",
+        skill_file=quality_check_skill,
+        content_file=quality_check_skill.with_name("content.md"),
+      )
+  return discovered
+
+
+def _infer_skill_family(skill_name: str) -> str:
+  slug = skill_name.removeprefix("bill-")
+  if "-code-review-" in skill_name or slug.endswith("code-review"):
+    return "code-review"
+  if slug.endswith("quality-check"):
+    return "quality-check"
+  if slug.endswith("feature-implement"):
+    return "feature-implement"
+  if slug.endswith("feature-verify"):
+    return "feature-verify"
+  return slug
+
+
+def _infer_skill_area(skill_name: str, family: str) -> str:
+  if family != "code-review" or "-code-review-" not in skill_name:
+    return ""
+  return skill_name.split("-code-review-", 1)[1]
+
+
+def _discover_content_managed_skill_targets(repo_root: Path) -> dict[str, GovernedSkillTarget]:
+  discovered = _discover_governed_skill_targets(repo_root)
+  skills_root = repo_root / "skills"
+  if not skills_root.is_dir():
+    return discovered
+
+  for skill_file in sorted(skills_root.rglob("SKILL.md")):
+    content_file = skill_file.with_name("content.md")
+    if not content_file.is_file():
+      continue
+    skill_name = skill_file.parent.name
+    if skill_name in discovered:
+      continue
+    relative = skill_file.relative_to(repo_root)
+    package = "base"
+    platform = ""
+    if len(relative.parts) >= 3 and relative.parts[0] == "skills":
+      if not relative.parts[1].startswith("bill-"):
+        package = relative.parts[1]
+        platform = relative.parts[1]
+    family = _infer_skill_family(skill_name)
+    discovered[skill_name] = GovernedSkillTarget(
+      skill_name=skill_name,
+      package=package,
+      platform=platform,
+      family=family,
+      area=_infer_skill_area(skill_name, family),
+      skill_file=skill_file,
+      content_file=content_file,
+    )
+  return discovered
+
+
+def _content_visible_lines(text: str) -> list[str]:
+  return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _has_unresolved_placeholder(text: str) -> bool:
+  import re
+
+  return re.search(r"(?m)^\s*(?:[-*]\s*)?(?:TODO|FIXME)\b", text) is not None
+
+
+def _parse_content_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
+  prefix_lines: list[str] = []
+  sections: list[tuple[str, str]] = []
+  current_heading: str | None = None
+  current_lines: list[str] = []
+  in_fence = False
+
+  for line in text.splitlines(keepends=True):
+    stripped = line.rstrip("\n")
+    if stripped.lstrip().startswith(("```", "~~~")):
+      in_fence = not in_fence
+      if current_heading is None:
+        prefix_lines.append(line)
+      else:
+        current_lines.append(line)
+      continue
+    if not in_fence and stripped.startswith("## "):
+      if current_heading is None:
+        current_heading = stripped
+        current_lines = []
+      else:
+        sections.append((current_heading, "".join(current_lines)))
+        current_heading = stripped
+        current_lines = []
+      continue
+    if current_heading is None:
+      prefix_lines.append(line)
+    else:
+      current_lines.append(line)
+
+  if current_heading is not None:
+    sections.append((current_heading, "".join(current_lines)))
+  return ("".join(prefix_lines), sections)
+
+
+def _render_content_sections(prefix: str, sections: list[tuple[str, str]]) -> str:
+  prefix_text = prefix.rstrip()
+  blocks: list[str] = []
+  if prefix_text:
+    blocks.append(prefix_text)
+  for heading, body in sections:
+    section_body = body.rstrip()
+    if section_body:
+      blocks.append(f"{heading}\n\n{section_body}")
+    else:
+      blocks.append(f"{heading}\n")
+  return "\n\n".join(blocks).rstrip() + "\n"
+
+
+def _section_completion_status(body: str) -> str:
+  if not body.strip():
+    return "empty"
+  if _has_unresolved_placeholder(body):
+    return "draft"
+  return "complete"
+
+
+def _content_completion_status(text: str) -> str:
+  visible_lines = _content_visible_lines(text)
+  if len(visible_lines) <= 1:
+    return "draft"
+  if _has_unresolved_placeholder(text):
+    return "draft"
+  _prefix, sections = _parse_content_sections(text)
+  if sections and any(_section_completion_status(body) != "complete" for _heading, body in sections):
+    return "draft"
+  return "complete"
+
+
+def _render_multiline_section_input(prompt: str, *, terminator: str = ".done") -> str:
+  print(prompt)
+  lines: list[str] = []
+  while True:
+    line = input()
+    if line == terminator:
+      break
+    lines.append(line)
+  return "\n".join(lines).rstrip()
+
+
+def _prompt_edit_action() -> str:
+  return _prompt_choice(
+    "Action [r=replace, a=append, c=clear, s=skip, d=done]: ",
+    {
+      "r": "replace",
+      "a": "append",
+      "c": "clear",
+      "s": "skip",
+      "d": "done",
+    },
+  )
+
+
+def _edit_content_guided(content_file: Path) -> tuple[str, list[dict[str, str]]]:
+  text = content_file.read_text(encoding="utf-8")
+  prefix, sections = _parse_content_sections(text)
+  if not sections:
+    replacement = _render_multiline_section_input(
+      "content.md has no editable H2 sections. Enter the full replacement body and finish with '.done'."
+    )
+    rendered = replacement if replacement.endswith("\n") else f"{replacement}\n"
+    return rendered, []
+
+  updated_sections: list[tuple[str, str]] = []
+  for index, (heading, body) in enumerate(sections):
+    status = _section_completion_status(body)
+    print(f"{heading} [{status}]")
+    print(body.rstrip() or "(empty)")
+    action = _prompt_edit_action()
+    if action == "done":
+      updated_sections.extend(sections[index:])
+      break
+    if action == "skip":
+      updated_sections.append((heading, body))
+      continue
+    if action == "clear":
+      updated_sections.append((heading, ""))
+      continue
+    prompt = (
+      f"Enter text for {heading}. Finish with '.done'."
+      if action == "replace"
+      else f"Append text for {heading}. Finish with '.done'."
+    )
+    entered = _render_multiline_section_input(prompt)
+    if action == "replace":
+      updated_sections.append((heading, entered))
+    else:
+      existing = body.rstrip()
+      combined = entered if not existing else f"{existing}\n\n{entered}".rstrip()
+      updated_sections.append((heading, combined))
+
+  rendered = _render_content_sections(prefix, updated_sections)
+  section_payload = [
+    {
+      "heading": heading.removeprefix("## ").strip(),
+      "status": _section_completion_status(body),
+    }
+    for heading, body in updated_sections
+  ]
+  return rendered, section_payload
+
+
+def _load_validator_module(repo_root: Path):
+  script_path = repo_root / "scripts" / "validate_agent_configs.py"
+  if not script_path.is_file():
+    raise ValueError(f"Validator script is missing at '{script_path}'.")
+  scripts_dir = str(script_path.parent)
+  repo_root_str = str(repo_root)
+  sys.path.insert(0, scripts_dir)
+  sys.path.insert(0, repo_root_str)
+  try:
+    spec = importlib.util.spec_from_file_location(
+      "_skill_bill_runtime_validator",
+      script_path,
+    )
+    if spec is None or spec.loader is None:
+      raise ValueError(f"Could not load validator module from '{script_path}'.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+  finally:
+    for entry in (repo_root_str, scripts_dir):
+      if entry in sys.path:
+        sys.path.remove(entry)
+
+
+def _validate_selected_skills(repo_root: Path, skill_names: list[str]) -> list[str]:
+  from skill_bill.shell_content_contract import ShellContentContractError, load_platform_pack
+
+  validator = _load_validator_module(repo_root)
+  issues: list[str] = []
+  skill_files = validator.discover_skill_files(repo_root, issues)
+  platform_pack_skill_files = validator.discover_platform_pack_skill_files(repo_root)
+
+  for skill_name in skill_names:
+    if skill_name in skill_files:
+      validator.validate_skill_file(skill_name, skill_files[skill_name], issues)
+      continue
+    if skill_name in platform_pack_skill_files:
+      skill_file = platform_pack_skill_files[skill_name]
+      validator.validate_platform_pack_skill_file(skill_name, skill_file, issues)
+      pack_root = repo_root / "platform-packs" / skill_file.relative_to(repo_root / "platform-packs").parts[0]
+      try:
+        load_platform_pack(pack_root)
+      except ShellContentContractError as error:
+        issues.append(f"{pack_root.relative_to(repo_root)}: {error}")
+      continue
+    issues.append(f"Unknown skill '{skill_name}'.")
+  return issues
+
+
 def _normalize_addon_body(text: str) -> str:
   if not text.strip():
     raise ValueError("Add-on body must be non-empty.")
@@ -530,6 +850,17 @@ def _prompt_multiline(prompt: str, *, terminator: str = "END") -> str:
     if any(line.strip() for line in lines):
       return "\n".join(lines)
     print("Add-on body must include at least one non-empty line.")
+
+
+def _prompt_optional_multiline(prompt: str, *, terminator: str = "END") -> str:
+  print(prompt)
+  lines: list[str] = []
+  while True:
+    line = input()
+    if line == terminator:
+      break
+    lines.append(line)
+  return "\n".join(lines).strip()
 
 
 def _build_addon_markdown(name: str, description: str, body: str) -> str:
@@ -578,6 +909,11 @@ def _prompt_new_skill_interactively(*, repo_root: Path | None = None) -> dict:
   if selection.startswith("platform-pack"):
     payload["kind"] = "platform-pack"
     payload["platform"] = platform
+    include_specialists = _prompt_yes_no(
+      "Include the approved code-review specialist stubs?",
+      default=True,
+    )
+    payload["skeleton_mode"] = "full" if include_specialists else "starter"
     display_name = input("Display name (blank to derive from slug): ").strip()
     if display_name:
       payload["display_name"] = display_name
@@ -619,6 +955,12 @@ def _prompt_new_skill_interactively(*, repo_root: Path | None = None) -> dict:
     description = input("One-line description (optional): ").strip()
     if description:
       payload["description"] = description
+    if family in {"code-review", "quality-check"}:
+      content_body = _prompt_optional_multiline(
+        "Initial content.md body (optional). Finish with a line containing only END."
+      )
+      if content_body:
+        payload["content_body"] = content_body
     return payload
 
   if selection == "code-review-area":
@@ -632,6 +974,11 @@ def _prompt_new_skill_interactively(*, repo_root: Path | None = None) -> dict:
     description = input("One-line description (optional): ").strip()
     if description:
       payload["description"] = description
+    content_body = _prompt_optional_multiline(
+      "Initial content.md body (optional). Finish with a line containing only END."
+    )
+    if content_body:
+      payload["content_body"] = content_body
     return payload
 
   return payload
@@ -767,11 +1114,102 @@ def doctor_command(args: argparse.Namespace) -> int:
   return 0
 
 
+def list_command(args: argparse.Namespace) -> int:
+  from skill_bill.upgrade import render_upgrade_targets
+
+  repo_root = Path(args.repo_root).resolve()
+  targets = _discover_content_managed_skill_targets(repo_root)
+  if args.skill_name:
+    selected_names = set(args.skill_name)
+    missing = sorted(selected_names - set(targets))
+    if missing:
+      raise ValueError(
+        f"Unknown content-managed skill(s): {', '.join(missing)}."
+      )
+    targets = {
+      skill_name: target
+      for skill_name, target in targets.items()
+      if skill_name in selected_names
+    }
+
+  rendered_targets = render_upgrade_targets(
+    repo_root,
+    skill_names=targets.keys(),
+  )
+  payload_skills: list[dict[str, object]] = []
+  for skill_name, target in sorted(targets.items()):
+    content_text = target.content_file.read_text(encoding="utf-8")
+    payload_skills.append(
+      {
+        "skill_name": skill_name,
+        "package": target.package,
+        "platform": target.platform,
+        "family": target.family,
+        "area": target.area,
+        "completion_status": _content_completion_status(content_text),
+        "generation_drift": (
+          rendered_targets.get(target.skill_file) is not None
+          and target.skill_file.read_text(encoding="utf-8")
+          != rendered_targets[target.skill_file]
+        ),
+        "skill_file": str(target.skill_file),
+        "content_file": str(target.content_file),
+      }
+    )
+
+  emit(
+    {
+      "repo_root": str(repo_root),
+      "skill_count": len(payload_skills),
+      "skills": payload_skills,
+    },
+    args.format,
+  )
+  return 0
+
+
+def validate_command(args: argparse.Namespace) -> int:
+  repo_root = Path(args.repo_root).resolve()
+  if args.skill_name:
+    issues = _validate_selected_skills(repo_root, args.skill_name)
+    payload = {
+      "repo_root": str(repo_root),
+      "mode": "selected",
+      "skill_names": args.skill_name,
+      "status": "pass" if not issues else "fail",
+      "issues": issues,
+    }
+    emit(payload, args.format)
+    return 0 if not issues else 1
+
+  script_path = repo_root / "scripts" / "validate_agent_configs.py"
+  if not script_path.is_file():
+    raise ValueError(f"Validator script is missing at '{script_path}'.")
+  result = subprocess.run(
+    [sys.executable, str(script_path), str(repo_root)],
+    capture_output=True,
+    text=True,
+  )
+  emit(
+    {
+      "repo_root": str(repo_root),
+      "mode": "repo",
+      "status": "pass" if result.returncode == 0 else "fail",
+      "exit_code": result.returncode,
+      "stdout": result.stdout,
+      "stderr": result.stderr,
+    },
+    args.format,
+  )
+  return result.returncode
+
+
 def upgrade_command(args: argparse.Namespace) -> int:
   from skill_bill.upgrade import upgrade_skill_wrappers
 
   result = upgrade_skill_wrappers(
     args.repo_root,
+    skill_names=args.skill_name,
     validate=not args.skip_validate,
   )
   emit(
@@ -782,6 +1220,88 @@ def upgrade_command(args: argparse.Namespace) -> int:
       "content_md_touched": False,
       "shell_ceremony_touched": False,
       "validator_ran": not args.skip_validate,
+    },
+    args.format,
+  )
+  return 0
+
+
+def _resolve_editor_command() -> list[str]:
+  editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or ""
+  if not editor.strip():
+    return []
+  return shlex.split(editor)
+
+
+def _edit_content_via_editor(content_file: Path) -> bool:
+  command = _resolve_editor_command()
+  if not command:
+    return False
+  subprocess.run(
+    [*command, str(content_file)],
+    check=True,
+  )
+  return True
+
+
+def edit_command(args: argparse.Namespace) -> int:
+  from skill_bill.upgrade import upgrade_skill_wrappers
+
+  repo_root = Path(args.repo_root).resolve()
+  editable_targets = _discover_content_managed_skill_targets(repo_root)
+  target = editable_targets.get(args.skill_name)
+  if target is None:
+    raise ValueError(
+      f"Skill '{args.skill_name}' is not a content-managed skill with a sibling content.md file."
+    )
+
+  content_before = target.content_file.read_bytes()
+  wrapper_before = target.skill_file.read_bytes()
+  used_editor = False
+  guided_sections: list[dict[str, str]] = []
+
+  try:
+    if args.body_file:
+      target.content_file.write_text(
+        _read_text_input(args.body_file),
+        encoding="utf-8",
+      )
+    elif args.editor:
+      used_editor = _edit_content_via_editor(target.content_file)
+      if not used_editor:
+        raise ValueError("No $VISUAL or $EDITOR is configured.")
+    else:
+      replacement, guided_sections = _edit_content_guided(target.content_file)
+      target.content_file.write_text(replacement, encoding="utf-8")
+
+    upgrade_result = upgrade_skill_wrappers(
+      repo_root,
+      skill_names=[target.skill_name],
+      validate=True,
+    )
+  except Exception:
+    target.content_file.write_bytes(content_before)
+    target.skill_file.write_bytes(wrapper_before)
+    raise
+
+  emit(
+    {
+      "skill_name": target.skill_name,
+      "package": target.package,
+      "platform": target.platform,
+      "family": target.family,
+      "area": target.area,
+      "skill_file": str(target.skill_file),
+      "content_file": str(target.content_file),
+      "used_editor": used_editor,
+      "guided_sections": guided_sections,
+      "completion_status": _content_completion_status(
+        target.content_file.read_text(encoding="utf-8")
+      ),
+      "wrapper_regenerated": str(target.skill_file) in {
+        str(path) for path in upgrade_result.regenerated_files
+      },
+      "validator_ran": True,
     },
     args.format,
   )
@@ -966,6 +1486,40 @@ def build_parser() -> argparse.ArgumentParser:
   doctor_parser.add_argument("--format", choices=("text", "json"), default="text")
   doctor_parser.set_defaults(handler=doctor_command)
 
+  list_parser = subparsers.add_parser(
+    "list",
+    help="List content-managed skills and their authoring status.",
+  )
+  list_parser.add_argument(
+    "--repo-root",
+    default=".",
+    help="Repo root to inspect. Defaults to the current working directory.",
+  )
+  list_parser.add_argument(
+    "--skill-name",
+    action="append",
+    help="Optional content-managed skill name to include. Repeat to target multiple skills.",
+  )
+  list_parser.add_argument("--format", choices=("text", "json"), default="text")
+  list_parser.set_defaults(handler=list_command)
+
+  validate_parser = subparsers.add_parser(
+    "validate",
+    help="Run the repo validator, or validate specific skills only.",
+  )
+  validate_parser.add_argument(
+    "--repo-root",
+    default=".",
+    help="Repo root to validate. Defaults to the current working directory.",
+  )
+  validate_parser.add_argument(
+    "--skill-name",
+    action="append",
+    help="Optional skill name to validate in isolation. Repeat to target multiple skills.",
+  )
+  validate_parser.add_argument("--format", choices=("text", "json"), default="text")
+  validate_parser.set_defaults(handler=validate_command)
+
   upgrade_parser = subparsers.add_parser(
     "upgrade",
     help="Regenerate scaffold-managed SKILL.md wrappers without touching authored sidecars.",
@@ -980,8 +1534,57 @@ def build_parser() -> argparse.ArgumentParser:
     action="store_true",
     help="Skip scripts/validate_agent_configs.py after wrapper regeneration.",
   )
+  upgrade_parser.add_argument(
+    "--skill-name",
+    action="append",
+    help="Optional governed or horizontal skill name to regenerate. Repeat to target multiple skills.",
+  )
   upgrade_parser.add_argument("--format", choices=("text", "json"), default="text")
   upgrade_parser.set_defaults(handler=upgrade_command)
+
+  render_parser = subparsers.add_parser(
+    "render",
+    help="Alias for upgrade: regenerate scaffold-managed SKILL.md wrappers.",
+  )
+  render_parser.add_argument(
+    "--repo-root",
+    default=".",
+    help="Repo root to upgrade. Defaults to the current working directory.",
+  )
+  render_parser.add_argument(
+    "--skip-validate",
+    action="store_true",
+    help="Skip scripts/validate_agent_configs.py after wrapper regeneration.",
+  )
+  render_parser.add_argument(
+    "--skill-name",
+    action="append",
+    help="Optional governed or horizontal skill name to regenerate. Repeat to target multiple skills.",
+  )
+  render_parser.add_argument("--format", choices=("text", "json"), default="text")
+  render_parser.set_defaults(handler=upgrade_command)
+
+  edit_parser = subparsers.add_parser(
+    "edit",
+    help="Edit a content-managed skill's authored content.md and regenerate the wrapper.",
+  )
+  edit_parser.add_argument("skill_name", help="Governed skill name to edit.")
+  edit_parser.add_argument(
+    "--repo-root",
+    default=".",
+    help="Repo root to edit. Defaults to the current working directory.",
+  )
+  edit_parser.add_argument(
+    "--body-file",
+    help="Replace content.md from a file path (or '-' for stdin) instead of prompting or launching $EDITOR.",
+  )
+  edit_parser.add_argument(
+    "--editor",
+    action="store_true",
+    help="Open content.md in $VISUAL or $EDITOR instead of using guided section editing.",
+  )
+  edit_parser.add_argument("--format", choices=("text", "json"), default="text")
+  edit_parser.set_defaults(handler=edit_command)
 
   new_skill_parser = subparsers.add_parser(
     "new-skill",
@@ -1003,6 +1606,27 @@ def build_parser() -> argparse.ArgumentParser:
   )
   new_skill_parser.add_argument("--format", choices=("text", "json"), default="text")
   new_skill_parser.set_defaults(handler=new_skill_command)
+
+  new_parser = subparsers.add_parser(
+    "new",
+    help="Alias for new-skill: scaffold one skill from a payload file or interactive prompts.",
+  )
+  new_parser.add_argument(
+    "--payload",
+    help="Path to a JSON payload file (or '-' for stdin).",
+  )
+  new_parser.add_argument(
+    "--interactive",
+    action="store_true",
+    help="Collect a skill scaffold payload via interactive prompts.",
+  )
+  new_parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help="Plan the scaffold and report the operations without touching disk.",
+  )
+  new_parser.add_argument("--format", choices=("text", "json"), default="text")
+  new_parser.set_defaults(handler=new_skill_command)
 
   new_addon_parser = subparsers.add_parser(
     "new-addon",

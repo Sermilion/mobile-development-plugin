@@ -87,6 +87,16 @@ def _governed_skill_body(
 
 def _build_upgrade_repo(tmp_path: Path) -> Path:
   repo = tmp_path / "repo"
+  scripts_dir = repo / "scripts"
+  scripts_dir.mkdir(parents=True, exist_ok=True)
+  (scripts_dir / "validate_agent_configs.py").write_text(
+    (ROOT / "scripts" / "validate_agent_configs.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
+  )
+  (scripts_dir / "skill_repo_contracts.py").write_text(
+    (ROOT / "scripts" / "skill_repo_contracts.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
+  )
   shell_ceremony = repo / "orchestration" / "shell-content-contract" / "shell-ceremony.md"
   shell_ceremony.parent.mkdir(parents=True, exist_ok=True)
   shell_ceremony.write_text(_SHELL_CEREMONY, encoding="utf-8")
@@ -190,7 +200,10 @@ class UpgradeCliTest(unittest.TestCase):
     ceremony_before = baseline_ceremony.read_bytes()
 
     stdout = io.StringIO()
-    with contextlib.redirect_stdout(stdout):
+    with (
+      contextlib.redirect_stdout(stdout),
+      mock.patch("skill_bill.upgrade._run_validator", return_value=None),
+    ):
       exit_code = main(["upgrade", "--repo-root", str(self.repo), "--format", "json"])
 
     self.assertEqual(exit_code, 0)
@@ -232,6 +245,157 @@ class UpgradeCliTest(unittest.TestCase):
 
     self.assertEqual(baseline_before, baseline_skill.read_bytes())
     self.assertEqual(horizontal_before, horizontal_skill.read_bytes())
+
+  def test_render_alias_accepts_targeted_skill_name(self) -> None:
+    stdout = io.StringIO()
+    with (
+      contextlib.redirect_stdout(stdout),
+      mock.patch("skill_bill.upgrade._run_validator", return_value=None),
+    ):
+      exit_code = main(
+        [
+          "render",
+          "--repo-root",
+          str(self.repo),
+          "--skill-name",
+          "bill-kotlin-code-review",
+          "--format",
+          "json",
+        ]
+      )
+
+    self.assertEqual(exit_code, 0)
+    payload = json.loads(stdout.getvalue())
+    self.assertEqual(payload["regenerated_count"], 1)
+    self.assertEqual(
+      payload["regenerated_files"],
+      [
+        str(
+          (
+            self.repo
+            / "platform-packs"
+            / "kotlin"
+            / "code-review"
+            / "bill-kotlin-code-review"
+            / "SKILL.md"
+          ).resolve()
+        )
+      ],
+    )
+
+
+class AuthoringCliTest(unittest.TestCase):
+  def setUp(self) -> None:
+    self._tmpdir = tempfile.TemporaryDirectory()
+    self.addCleanup(self._tmpdir.cleanup)
+    self.repo = _build_upgrade_repo(Path(self._tmpdir.name))
+
+  def test_list_reports_completion_status_and_generation_drift(self) -> None:
+    baseline_content = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review"
+      / "content.md"
+    )
+    baseline_content.write_text(
+      "# Content\n\n## Purpose\n\nDocument the baseline review flow.\n",
+      encoding="utf-8",
+    )
+
+    stdout = io.StringIO()
+    with contextlib.redirect_stdout(stdout):
+      exit_code = main(
+        ["list", "--repo-root", str(self.repo), "--format", "json"]
+      )
+
+    self.assertEqual(exit_code, 0)
+    payload = json.loads(stdout.getvalue())
+    baseline_entry = next(
+      entry for entry in payload["skills"] if entry["skill_name"] == "bill-kotlin-code-review"
+    )
+    self.assertEqual(baseline_entry["completion_status"], "complete")
+    self.assertTrue(baseline_entry["generation_drift"])
+
+  def test_edit_guided_updates_section_and_regenerates_wrapper(self) -> None:
+    target_dir = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review"
+    )
+    content_file = target_dir / "content.md"
+    content_file.write_text(
+      "# Content\n\n## Purpose\n\nCurrent purpose.\n\n## Constraints\n\nTODO: fill this in.\n",
+      encoding="utf-8",
+    )
+
+    stdout = io.StringIO()
+    with (
+      contextlib.redirect_stdout(stdout),
+      mock.patch("skill_bill.upgrade._run_validator", return_value=None),
+      mock.patch(
+        "builtins.input",
+        side_effect=[
+          "r",
+          "Updated purpose from guided editing.",
+          ".done",
+          "d",
+        ],
+      ),
+    ):
+      exit_code = main(
+        [
+          "edit",
+          "bill-kotlin-code-review",
+          "--repo-root",
+          str(self.repo),
+          "--format",
+          "json",
+        ]
+      )
+
+    self.assertEqual(exit_code, 0)
+    output = stdout.getvalue()
+    payload = json.loads(output[output.index("{"):])
+    self.assertEqual(payload["skill_name"], "bill-kotlin-code-review")
+    self.assertEqual(payload["completion_status"], "draft")
+    self.assertIn("Updated purpose from guided editing.", content_file.read_text(encoding="utf-8"))
+    self.assertTrue(payload["wrapper_regenerated"])
+
+  def test_validate_selected_skill_reports_todo_failure(self) -> None:
+    content_file = (
+      self.repo
+      / "platform-packs"
+      / "kotlin"
+      / "code-review"
+      / "bill-kotlin-code-review"
+      / "content.md"
+    )
+    content_file.write_text("# Content\n\nTODO: unresolved\n", encoding="utf-8")
+
+    stdout = io.StringIO()
+    with contextlib.redirect_stdout(stdout):
+      exit_code = main(
+        [
+          "validate",
+          "--repo-root",
+          str(self.repo),
+          "--skill-name",
+          "bill-kotlin-code-review",
+          "--format",
+          "json",
+        ]
+      )
+
+    self.assertEqual(exit_code, 1)
+    payload = json.loads(stdout.getvalue())
+    self.assertEqual(payload["status"], "fail")
+    self.assertTrue(
+      any("unresolved TODO/FIXME placeholder" in issue for issue in payload["issues"])
+    )
 
 
 class NewAddonCliTest(unittest.TestCase):

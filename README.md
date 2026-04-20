@@ -420,15 +420,17 @@ Skill Bill v1.1 splits every governed skill into two sibling files:
   project-specific rules, classification signals, add-on selection
   rules, and specialist heuristics. When maintainers say "edit the
   skill", this is usually the file they mean. Open it with
-  `skill-bill edit <skill-name>`; it opens in `$VISUAL` → `$EDITOR`, or
-  prints the path when neither is set.
+  `skill-bill edit <skill-name>`; by default it walks each authored H2
+  section in the terminal with replace / append / clear / skip actions.
+  Pass `--editor` to hand off to `$VISUAL` or `$EDITOR`, or `--body-file`
+  to replace `content.md` from stdin or another path. The command then
+  regenerates the wrapper and reruns validation.
 - **`SKILL.md`** — generated governance shell. Agents execute through
   this file, but authors normally should not edit it directly. It carries
-  frontmatter (`name`, `description`, `shell_contract_version`,
-  `template_version`), the required H2 set, a byte-identical
-  `## Execution` pointer to the sibling `content.md`, and the shell-owned
-  ceremony such as overrides precedence (`.agents/skill-overrides.md` >
-  `AGENTS.md` > built-in defaults).
+  frontmatter (`name`, `description`), the required governed H2 set, a
+  template-owned `## Execution` pointer to the sibling `content.md`, and
+  the shell-owned ceremony such as overrides precedence
+  (`.agents/skill-overrides.md` > `AGENTS.md` > built-in defaults).
 - **shared sidecars** — files such as `shell-ceremony.md`,
   `stack-routing.md`, `review-orchestrator.md`, `review-delegation.md`,
   and `telemetry-contract.md`. These hold governed cross-skill behavior
@@ -455,32 +457,54 @@ platform-packs/kotlin/code-review/bill-kotlin-code-review/
 └── telemetry-contract.md
 ```
 
-After a template bump in `skill_bill/constants.py`, regenerate stale
-shells with `skill-bill upgrade` (supports `--dry-run`, `--skill <name>`,
-`--yes`). Shell regeneration updates scaffold-managed wrappers and leaves
-the authored `content.md` working surface alone. Running
-`skill-bill doctor` reports skills whose `template_version` has drifted
-along with the exact upgrade command to run.
+When the shared wrapper template changes, regenerate scaffold-managed
+wrappers with `skill-bill render` (alias: `skill-bill upgrade`). Use
+`--skill-name <skill>` to target a single skill; omit it to refresh the
+full repo. Wrapper regeneration leaves the authored `content.md` working
+surface alone and reruns `scripts/validate_agent_configs.py`.
 
 Legacy v1.0 skills migrate through the one-shot script
 `.venv/bin/python3 scripts/migrate_to_content_md.py`. The migration is
 idempotent, writes `_migration_backup/<timestamp>/` before the first
 rewrite, rolls back per-skill on validator failure, and never commits.
+This is a maintainer-only bulk workflow; normal skill edits should go
+through `skill-bill edit`.
 
 ## Adding skills
 
 Preferred path:
 
-- from inside an AI agent, run `/bill-create-skill`. The skill now starts with plain-language intake, especially for `platform-pack`: ask for the platform slug, ask whether to include code-review specialists, preview the generated baseline set, then subprocess-call `skill-bill new-skill --payload <tempfile>` to materialize it.
-- outside an agent (scripts, CI, teams piloting a new platform), run `skill-bill new-skill --interactive` for the same plain-language bootstrap flow, or pass a JSON payload file with `skill-bill new-skill --payload ./payload.json`.
+- from inside an AI agent, run `/bill-create-skill`. The skill starts with plain-language intake, gathers only the missing authoring details, previews the inferred scaffold, then subprocess-calls `skill-bill new --payload <tempfile>` to materialize it.
+- outside an agent (scripts, CI, teams piloting a new platform), run `skill-bill new --interactive` for the same plain-language bootstrap flow, or pass a JSON payload file with `skill-bill new --payload ./payload.json`.
 
-New platform packs are scaffolded as a bootstrap set: pack root, baseline `code-review`, and baseline `quality-check`. Known platforms such as `java` use built-in routing presets; only unknown or custom platforms need manual `routing_signals`. `platform-pack` still supports `skeleton_mode=full` when you want the bare-bones review specialists created up front; choose `starter` when you want only the baseline path first.
+Terminal-first loop for one concrete skill:
+
+1. `skill-bill new --interactive`
+2. `skill-bill edit <skill-name>`
+3. `skill-bill list`
+4. `skill-bill validate --skill-name <skill-name>`
+5. `skill-bill render --skill-name <skill-name>` when wrapper templates change
+
+`skill-bill new-skill` and `skill-bill upgrade` remain supported as the
+lower-level command names behind `new` and `render`.
+
+For governed skills, the interactive flow can seed an initial `content.md`
+body so the authored behavior is captured at scaffold time instead of being
+backfilled by editing `SKILL.md`. New platform packs are scaffolded as a
+bootstrap set: pack root, baseline `code-review`, and baseline
+`quality-check`. Known platforms such as `java` use built-in routing
+presets; only unknown or custom platforms need manual `routing_signals`.
+`platform-pack` supports `skeleton_mode=full` for approved specialist stubs
+or `starter` for the baseline pair only.
 
 The payload schema, the loud-fail exception catalog, and one worked example per kind live in `orchestration/shell-content-contract/SCAFFOLD_PAYLOAD.md`.
 
 The scaffolder is atomic: it creates files, edits manifests with best-effort comment preservation, wires sibling supporting-file symlinks, runs `scripts/validate_agent_configs.py`, and auto-installs into detected agents. Any failure rolls back every staged change and prints the validator's error verbatim.
 
-When the shared wrapper template changes, run `skill-bill upgrade` from the repo root. It regenerates scaffold-managed `SKILL.md` wrappers in place, then reruns `scripts/validate_agent_configs.py`. Authored `content.md` files and the shared `shell-ceremony.md` sidecar stay untouched.
+When the shared wrapper template changes, run `skill-bill render` from the
+repo root. It regenerates scaffold-managed `SKILL.md` wrappers in place,
+then reruns `scripts/validate_agent_configs.py`. Authored `content.md`
+files and the shared `shell-ceremony.md` sidecar stay untouched.
 
 Manual path (discouraged — prefer the scaffolder):
 
