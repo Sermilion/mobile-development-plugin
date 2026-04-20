@@ -4,9 +4,7 @@ A governed system for portable AI-agent behavior: stable base commands, shared o
 
 Skill Bill is a governance product, not a prompt dump. This repo ships the shared orchestration playbooks under `orchestration/`, validators and CLI/MCP runtime under `skill_bill/` and `scripts/`, cross-agent installers, the `bill-create-skill` authoring path, SQLite-backed telemetry, and stable base shells such as `bill-code-review` and `bill-quality-check`. Governed pack skills now use a thin `SKILL.md` wrapper plus sibling `content.md` and `shell-ceremony.md` sidecars; the shell+content contract is versioned at `orchestration/shell-content-contract/PLAYBOOK.md`.
 
-The in-repo first-party reference packs are intentionally narrow: `kotlin` and `kmp` live under `platform-packs/` as the built-in examples of the governed pack model. If your team needs another stack, author or fork a separate platform pack with the scaffolder instead of treating this repo as the permanent home for every ecosystem.
-
-Skill Bill is platform-extensible, not "every platform goes in this repo" by default. Any team can author a conforming platform pack, but only a small first-party reference set should ship here.
+Shipped platform packs live under `platform-packs/`. Routing, validation, and installation are manifest-driven, so any conforming platform pack can live here without changing the shell.
 
 Rolling out to a team? Start with [Getting Started for Teams](docs/getting-started-for-teams.md) — it covers customization, expectations, and when to trust vs. verify output.
 
@@ -124,24 +122,19 @@ The intent is for these pack-owned add-ons to be the apex Android reference laye
 
 Base entry points stay stable for users:
 
-- `/bill-code-review` routes to `bill-kotlin-code-review` or `bill-kmp-code-review` in the built-in first-party set
+- `/bill-code-review` routes to the matching `bill-<platform>-code-review` discovered from `platform-packs/`
 - `/bill-quality-check` routes to the matching stack-specific quality checker
 - `/bill-feature-implement` orchestrates the full workflow
 
 ## Reference platform packs
 
-Skill Bill keeps its first-party reference surface intentionally small. The governed architecture lives in `platform-packs/<slug>/`; this repo ships only the `kotlin` and `kmp` packs as built-in examples, while other stacks are expected to be scaffolded or maintained separately.
-
-Policy:
-- Any platform is allowed by the architecture if it follows the governed pack contract.
-- New platforms should usually be authored as separate or forked packs.
-- Add a platform to this repo's shipped surface only when it is intentionally maintained here as a first-party reference pack.
+Skill Bill's governed architecture lives in `platform-packs/<slug>/`. Any platform is allowed as long as it follows the governed pack contract.
 
 | Tier | Platforms | What you get | Skill count |
 |------|-----------|-------------|-------------|
 | **Deep** | Kotlin, KMP | Multi-layer specialist routing (KMP → Kotlin baseline), 12 governed Android add-ons (Compose, navigation, interop, design-system, R8), inline/delegated execution modes, quality-check | 13 skills + 12 add-ons |
 
-Teams can still create other platform packs. The point of the built-in inventory is to demonstrate the governance model, not to keep every stack in this repository forever.
+The point of the shipped inventory is to demonstrate the governance model with real maintained packs.
 
 **What "Deep" means here:**
 
@@ -189,9 +182,9 @@ The installer first asks which agent targets to install to. You can choose one o
 all
 ```
 
-It then shows the available built-in reference packs and asks which ones to install. Canonical skills in `skills/` are always installed; the optional pack choices in this repo are `kotlin` and `kmp`. Governed add-ons under `platform-packs/<platform>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
+It then shows the available platform packs discovered under `platform-packs/` and asks which ones to install. Canonical skills in `skills/` are always installed. Governed add-ons under `platform-packs/<platform>/addons/` ship with their owning platform pack and do not appear as separate install targets or slash commands. The primary input path is **comma-separated numbers**, though platform names still work too.
 
-Available options are shown as separate entries:
+Available options depend on the packs present in your checkout. For example, a checkout with the Kotlin and KMP reference packs shows:
 
 ```text
 1. Kotlin
@@ -225,7 +218,7 @@ The uninstaller is idempotent. It removes current Skill Bill installs, generated
 
 ## Reference skill catalog
 
-The skills below ship in this repo as the built-in governance system plus the two first-party reference packs. Install them via `./install.sh`, extend them in your fork, or author separate stacks via `/bill-create-skill`.
+The skills below ship in this repo as the built-in governance system plus the currently maintained platform packs. Install them via `./install.sh` or extend them via `/bill-create-skill`.
 
 ### Code Review (1 skills)
 
@@ -235,7 +228,7 @@ The skills below ship in this repo as the built-in governance system plus the tw
 
 ### Platform Packs — Kotlin (9 skills)
 
-Built-in first-party reference pack at `platform-packs/kotlin/`. Covers shared Kotlin plus backend/server Kotlin code and acts as the baseline layer for the KMP pack.
+Reference pack at `platform-packs/kotlin/`. Covers shared Kotlin plus backend/server Kotlin code and acts as the baseline layer for the KMP pack.
 
 | Skill | Purpose |
 |-------|---------|
@@ -251,7 +244,7 @@ Built-in first-party reference pack at `platform-packs/kotlin/`. Covers shared K
 
 ### Platform Packs — KMP (3 skills)
 
-Built-in first-party reference pack at `platform-packs/kmp/`. Layers Android/KMP-specific reviewers on the Kotlin baseline. Also owns governed Android add-ons.
+Reference pack at `platform-packs/kmp/`. Layers Android/KMP-specific reviewers on the Kotlin baseline. Also owns governed Android add-ons.
 
 | Skill | Purpose |
 |-------|---------|
@@ -346,10 +339,10 @@ That last file is the canonical map for:
 
 Current shipped platform packs (under `platform-packs/`):
 
-- `kotlin` — built-in first-party reference pack with 9 code-review skills plus `bill-kotlin-quality-check`
-- `kmp` — built-in first-party reference pack with 3 code-review skills and 12 governed Android add-ons; quality-check currently falls back to `kotlin`
+- `kotlin` — reference pack with 9 code-review skills plus `bill-kotlin-quality-check`
+- `kmp` — reference pack with 3 code-review skills and 12 governed Android add-ons; quality-check currently falls back to `kotlin`
 
-Other stacks belong in separately authored or forked platform packs created with the scaffolder, not in this repo's shipped surface.
+Additional stacks can be added as conforming platform packs under `platform-packs/`.
 
 ### Naming and enforcement
 
