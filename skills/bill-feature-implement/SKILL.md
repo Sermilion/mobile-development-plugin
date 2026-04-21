@@ -15,23 +15,54 @@ If `.agents/skill-overrides.md` exists in the project root and contains a matchi
 
 ## Orchestrator vs subagent split
 
-| Step | Where it runs | Why |
-|---|---|---|
-| 1 — Collect design doc + assess | **Orchestrator** | Requires user interaction |
-| 1b — Create feature branch | **Orchestrator** | Trivial git op; keeps branch state visible |
-| 2 — Pre-planning (history, spec save, patterns) | **Subagent** | Heavy reading; digest is small |
-| 3 — Create implementation plan | **Subagent** | Heavy reading; returns structured plan |
-| 4 — Execute plan | **Subagent** | Biggest context win; many file edits |
-| 5 — Code review (`bill-code-review`) | **Orchestrator** | Already spawns specialist subagents internally — do not nest further |
-| 6 — Completeness audit | **Subagent** | Re-reads code + criteria; returns pass/fail digest |
-| 6b — Quality check (`bill-quality-check`) | **Subagent** | Shell-heavy; returns structured result + telemetry payload |
-| 7 — Boundary history (`bill-boundary-history`) | **Orchestrator** | Small write, git-auditable |
-| 8 — Commit and push | **Orchestrator** | Git ops must stay visible |
-| 9 — PR description (`bill-pr-description`) | **Subagent** | Reads branch diff; returns PR URL + telemetry payload |
+| Step                                            | Where it runs    | Why                                                                  |
+|-------------------------------------------------|------------------|----------------------------------------------------------------------|
+| 1 — Collect design doc + assess                 | **Orchestrator** | Requires user interaction                                            |
+| 1b — Create feature branch                      | **Orchestrator** | Trivial git op; keeps branch state visible                           |
+| 2 — Pre-planning (history, spec save, patterns) | **Subagent**     | Heavy reading; digest is small                                       |
+| 3 — Create implementation plan                  | **Subagent**     | Heavy reading; returns structured plan                               |
+| 4 — Execute plan                                | **Subagent**     | Biggest context win; many file edits                                 |
+| 5 — Code review (`bill-code-review`)            | **Orchestrator** | Already spawns specialist subagents internally — do not nest further |
+| 6 — Completeness audit                          | **Subagent**     | Re-reads code + criteria; returns pass/fail digest                   |
+| 6b — Quality check (`bill-quality-check`)       | **Subagent**     | Shell-heavy; returns structured result + telemetry payload           |
+| 7 — Boundary history (`bill-boundary-history`)  | **Orchestrator** | Small write, git-auditable                                           |
+| 8 — Commit and push                             | **Orchestrator** | Git ops must stay visible                                            |
+| 9 — PR description (`bill-pr-description`)      | **Subagent**     | Reads branch diff; returns PR URL + telemetry payload                |
 
 Subagents run **sequentially**, in the **same worktree** (no `isolation: "worktree"`). Do not launch any of these subagents in parallel.
 
 Each subagent receives a **self-contained briefing** (see [reference.md](reference.md) for the per-phase briefing templates and structured return contracts). A subagent must not re-read the raw spec — it operates on what the orchestrator hands it. Its return value is a structured object the orchestrator can consume without re-parsing prose.
+
+## Workflow State
+
+This skill is the first runtime workflow-state pilot. In addition to the
+top-level telemetry tools, the orchestrator must persist durable workflow
+state with these MCP tools:
+
+- `feature_implement_workflow_open`
+- `feature_implement_workflow_update`
+- `feature_implement_workflow_get`
+
+Workflow-state rules:
+
+- Open workflow state once, immediately after Step 1 is confirmed.
+- Save both ids:
+  - `session_id` from `feature_implement_started` for telemetry
+  - `workflow_id` from `feature_implement_workflow_open` for durable state
+- Maintain a local `child_steps` list for orchestrated child telemetry exactly
+  as before.
+- After every major phase boundary, call `feature_implement_workflow_update`
+  with:
+  - the new `workflow_status`
+  - the new `current_step_id`
+  - `step_updates` for the steps whose status changed
+  - `artifacts_patch` for the structured artifact produced by that phase
+- Workflow state is independent of telemetry settings. Persist it even when
+  `feature_implement_started` or `feature_implement_finished` returns
+  `status: skipped`.
+- Follow the artifact names and phase-to-artifact mapping in
+  [reference.md](reference.md). Do not invent prose-only handoffs when a
+  structured artifact exists.
 
 ## Step 1: Collect Design Doc + Assess Size (orchestrator)
 
@@ -67,9 +98,35 @@ After the user confirms the assessment, call the `feature_implement_started` MCP
 
 Save the returned `session_id` for `feature_implement_finished`. If the tool returns `status: skipped`, continue normally.
 
+### Workflow State: Open
+
+After Step 1 is confirmed:
+
+1. Call `feature_implement_workflow_open` with:
+   - `session_id`: the `session_id` from `feature_implement_started`
+   - `current_step_id`: `assess`
+2. Save the returned `workflow_id`.
+3. Immediately call `feature_implement_workflow_update` to:
+   - mark `assess` as completed
+   - set `create_branch` to running
+   - persist the `assessment` artifact
+
+The `assessment` artifact must include:
+- acceptance criteria
+- non-goals
+- open questions
+- feature size
+- feature name
+- rollout need
+
 ## Step 1b: Create Feature Branch (orchestrator)
 
 `git checkout -b feat/{ISSUE_KEY}-{feature-name}`
+
+After the branch is created, call `feature_implement_workflow_update` to:
+- mark `create_branch` as completed
+- set `preplan` to running
+- persist a `branch` artifact with the branch name
 
 ## Step 2: Pre-Planning (subagent)
 
@@ -86,6 +143,11 @@ Spawn a subagent with the pre-planning briefing defined in [reference.md](refere
 
 The subagent returns the **pre-planning return contract** (see reference.md), including any selected governed add-ons as metadata. The orchestrator keeps this digest in context and passes it to later subagents — the raw findings stay in the subagent.
 
+After the subagent returns, call `feature_implement_workflow_update` to:
+- mark `preplan` as completed
+- set `plan` to running
+- persist the `preplan_digest` artifact
+
 ## Step 3: Create Implementation Plan (subagent)
 
 Spawn a subagent with the planning briefing defined in [reference.md](reference.md) under "Planning subagent briefing". The briefing includes: acceptance criteria, non-goals, feature size, pre-planning digest (from Step 2), rollout info, feature-flag pattern (if any), and validation strategy.
@@ -95,6 +157,11 @@ The subagent returns the **planning return contract**: an ordered task list, eac
 If the plan includes testable logic, the **final task must be a dedicated test task**. The subagent is responsible for enforcing this rule in the plan it returns.
 
 The orchestrator presents the plan, then proceeds to implementation — the plan is not a second approval gate.
+
+After the plan is accepted for execution, call `feature_implement_workflow_update` to:
+- mark `plan` as completed
+- set `implement` to running
+- persist the `plan` artifact
 
 ## Step 4: Execute Plan (subagent)
 
@@ -106,6 +173,11 @@ The subagent returns the **implementation return contract**: `files_created`, `f
 
 For MEDIUM/LARGE, the subagent performs the **post-implementation compact** internally before returning: summarize files, feature flag info, criteria-to-file mapping, deviations; then re-read the saved spec to verify every criterion is mapped.
 
+After the subagent returns, call `feature_implement_workflow_update` to:
+- mark `implement` as completed
+- set `review` to running
+- persist the `implementation_summary` artifact
+
 ## Step 5: Code Review (orchestrator)
 
 Run `bill-code-review` **inline in the orchestrator** (read its skill file and apply inline). Scope: current unit of work for SMALL, branch diff for MEDIUM/LARGE. Do not wrap `bill-code-review` in an additional subagent — it already spawns specialist subagents internally.
@@ -113,6 +185,20 @@ Run `bill-code-review` **inline in the orchestrator** (read its skill file and a
 **Review loop:** Auto-fix Blocker and Major findings by spawning the implementation subagent again with a fix briefing (acceptance criteria + list of findings + pointer to the current diff + instruction to fix only those findings). Before respawning, capture the exact diff pointer the review was run against — the branch name, commit range (e.g. `main..HEAD`), or explicit file list — and pass it as `{branch_or_commit_range}` in the fix briefing so the subagent knows which diff "the findings" refer to. Re-run review. Continue past Minor-only findings. Max **3 iterations**. Do not pause to ask the user which finding to fix.
 
 **Orchestrated child telemetry:** when this workflow invokes `import_review` and `triage_findings` for the review it owns, pass `orchestrated=true` to both tools. Collect the `telemetry_payload` returned by `triage_findings` (or by `import_review` when the review has no findings) and append it to the local `child_steps` list. The review will not emit `skillbill_review_finished` on its own — its payload will be embedded in the `skillbill_feature_implement_finished` event instead.
+
+Workflow-state rules for review:
+
+- After each review pass, persist a `review_result` artifact containing:
+  - the diff pointer reviewed
+  - prioritized findings summary
+  - current review iteration count
+- If the review loop sends work back to implementation:
+  - update workflow state so `review` is no longer running
+  - set `implement` back to running
+  - increment the `implement` step's `attempt_count`
+- Once review is complete, call `feature_implement_workflow_update` to:
+  - mark `review` as completed
+  - set `audit` to running
 
 ## Step 6: Completeness Audit (subagent)
 
@@ -124,6 +210,17 @@ Spawn a subagent with the audit briefing defined in [reference.md](reference.md)
 The subagent returns the **audit return contract**: `pass: bool`, `per_criterion: [...]`, `gaps: [...]`.
 
 If gaps found: the orchestrator respawns the planning subagent with the gaps, then the implementation subagent, then re-runs code review, then re-spawns the audit subagent. Max **2 audit iterations**. When complete, the orchestrator updates the saved spec status to **Complete** (MEDIUM/LARGE only).
+
+Workflow-state rules for audit:
+
+- After each audit pass, persist the `audit_report` artifact.
+- If the audit finds gaps and loops back:
+  - mark `audit` as no longer running
+  - set `plan` back to running
+  - increment the `plan` step's `attempt_count`
+- Once the audit passes, call `feature_implement_workflow_update` to:
+  - mark `audit` as completed
+  - set `validate` to running
 
 ## Finalization sequence (Steps 6b → 9)
 
@@ -137,9 +234,19 @@ If `bill-quality-check` reports no supported stack for the affected repo, the su
 
 The orchestrator appends the returned `telemetry_payload` to the `child_steps` list.
 
+After validation finishes, call `feature_implement_workflow_update` to:
+- mark `validate` as completed
+- set `write_history` to running
+- persist the `validation_result` artifact
+
 ### Step 7: Write Boundary History (orchestrator)
 
 Run `bill-boundary-history` inline in the orchestrator (read its skill file and apply inline). The skill owns write/skip rules and entry format.
+
+After Step 7, call `feature_implement_workflow_update` to:
+- mark `write_history` as completed
+- set `commit_push` to running
+- persist the `history_result` artifact
 
 ### Step 8: Commit and Push (orchestrator)
 
@@ -147,11 +254,20 @@ Run `bill-boundary-history` inline in the orchestrator (read its skill file and 
 2. Commit with message format: `feat: <concise description>` (omit the issue key — the branch name already carries it)
 3. Push the branch to the remote with `-u` to set upstream tracking
 
+After push succeeds, call `feature_implement_workflow_update` to:
+- mark `commit_push` as completed
+- set `pr_description` to running
+
 ### Step 9: Generate PR Description (subagent)
 
 Spawn a subagent with the PR-description briefing defined in [reference.md](reference.md) under "PR-description subagent briefing". The subagent runs `bill-pr-description` (read its skill file and apply inline), creates the PR, and **must call `pr_description_generated` with `orchestrated=true`** itself. The subagent returns: PR URL, PR title, and the `telemetry_payload` returned by `pr_description_generated`.
 
 The orchestrator appends the returned `telemetry_payload` to the `child_steps` list.
+
+After the PR step finishes, call `feature_implement_workflow_update` to:
+- mark `pr_description` as completed
+- set `finish` to running
+- persist the `pr_result` artifact
 
 ### Telemetry: Record Finished
 
@@ -171,6 +287,13 @@ After the PR is created (or when the workflow ends early due to error or user ab
 - `child_steps`: list of `telemetry_payload` dicts collected from child tools invoked with `orchestrated=true` during the session
 
 For fields not yet reached (early exit), use: 0 for counts, `skipped` for results, false for booleans.
+
+Before or immediately after `feature_implement_finished`, call
+`feature_implement_workflow_update` one final time to:
+- mark `finish` as completed for successful runs
+- set `workflow_status` to `completed`, `abandoned`, or `failed`
+- keep `current_step_id` at the step where the workflow stopped
+- persist any final artifact patch needed to explain the terminal state
 
 ## Reference
 

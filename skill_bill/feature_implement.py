@@ -14,6 +14,12 @@ from skill_bill.constants import (
   EVENT_FEATURE_IMPLEMENT_STARTED,
   FEATURE_FLAG_PATTERNS,
   FEATURE_SIZES,
+  FEATURE_IMPLEMENT_WORKFLOW_CONTRACT_VERSION,
+  FEATURE_IMPLEMENT_WORKFLOW_PREFIX,
+  FEATURE_IMPLEMENT_WORKFLOW_STATUSES,
+  FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS,
+  FEATURE_IMPLEMENT_WORKFLOW_STEP_STATUSES,
+  FEATURE_IMPLEMENT_WORKFLOW_TERMINAL_STATUSES,
   ISSUE_KEY_TYPES,
   SPEC_INPUT_TYPES,
   VALIDATION_RESULTS,
@@ -25,6 +31,12 @@ def generate_feature_session_id() -> str:
   now = datetime.now(timezone.utc)
   suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
   return f"fis-{now:%Y%m%d-%H%M%S}-{suffix}"
+
+
+def generate_feature_workflow_id() -> str:
+  now = datetime.now(timezone.utc)
+  suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+  return f"{FEATURE_IMPLEMENT_WORKFLOW_PREFIX}-{now:%Y%m%d-%H%M%S}-{suffix}"
 
 
 def validate_enum(value: str, allowed: tuple[str, ...], field_name: str) -> str | None:
@@ -78,6 +90,109 @@ def validate_finished_params(
   return None
 
 
+def _default_workflow_steps(initial_step_id: str) -> list[dict[str, object]]:
+  steps: list[dict[str, object]] = []
+  for step_id in FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS:
+    if step_id == initial_step_id:
+      steps.append({
+        "step_id": step_id,
+        "status": "running",
+        "attempt_count": 1,
+      })
+    else:
+      steps.append({
+        "step_id": step_id,
+        "status": "pending",
+        "attempt_count": 0,
+      })
+  return steps
+
+
+def validate_workflow_open_params(*, current_step_id: str) -> str | None:
+  return validate_enum(current_step_id, FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS, "current_step_id")
+
+
+def validate_workflow_state_params(
+  *,
+  workflow_status: str,
+  current_step_id: str,
+  step_updates: list[dict] | None,
+  artifacts_patch: dict | None,
+) -> str | None:
+  error = validate_enum(workflow_status, FEATURE_IMPLEMENT_WORKFLOW_STATUSES, "workflow_status")
+  if error:
+    return error
+  if current_step_id:
+    error = validate_enum(current_step_id, FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS, "current_step_id")
+    if error:
+      return error
+  if step_updates is not None:
+    if not isinstance(step_updates, list):
+      return "step_updates must be a list of step objects."
+    seen_step_ids: set[str] = set()
+    for index, step in enumerate(step_updates):
+      if not isinstance(step, dict):
+        return f"step_updates[{index}] must be an object."
+      step_id = step.get("step_id")
+      status = step.get("status")
+      attempt_count = step.get("attempt_count")
+      if not isinstance(step_id, str) or not step_id:
+        return f"step_updates[{index}].step_id must be a non-empty string."
+      error = validate_enum(step_id, FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS, "step_updates.step_id")
+      if error:
+        return error
+      if step_id in seen_step_ids:
+        return f"Duplicate step_id '{step_id}' in step_updates."
+      seen_step_ids.add(step_id)
+      if not isinstance(status, str) or not status:
+        return f"step_updates[{index}].status must be a non-empty string."
+      error = validate_enum(status, FEATURE_IMPLEMENT_WORKFLOW_STEP_STATUSES, "step_updates.status")
+      if error:
+        return error
+      if not isinstance(attempt_count, int) or attempt_count < 0:
+        return f"step_updates[{index}].attempt_count must be an integer >= 0."
+  if artifacts_patch is not None and not isinstance(artifacts_patch, dict):
+    return "artifacts_patch must be an object."
+  return None
+
+
+def _decode_json_object(raw: str, *, default: dict | list) -> dict | list:
+  if not raw:
+    return default
+  try:
+    decoded = json.loads(raw)
+  except json.JSONDecodeError:
+    return default
+  if isinstance(default, dict) and isinstance(decoded, dict):
+    return decoded
+  if isinstance(default, list) and isinstance(decoded, list):
+    return decoded
+  return default
+
+
+def _merge_step_updates(
+  existing_steps: list[dict[str, object]],
+  step_updates: list[dict] | None,
+) -> list[dict[str, object]]:
+  if step_updates is None:
+    return existing_steps
+
+  by_step_id = {str(step["step_id"]): dict(step) for step in existing_steps}
+  for step_update in step_updates:
+    step_id = str(step_update["step_id"])
+    by_step_id[step_id] = {
+      "step_id": step_id,
+      "status": str(step_update["status"]),
+      "attempt_count": int(step_update["attempt_count"]),
+    }
+
+  return [
+    by_step_id[step_id]
+    for step_id in FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS
+    if step_id in by_step_id
+  ]
+
+
 def save_started(
   connection: sqlite3.Connection,
   *,
@@ -114,6 +229,34 @@ def save_started(
         acceptance_criteria_count,
         open_questions_count,
         spec_summary,
+      ),
+    )
+
+
+def save_workflow_open(
+  connection: sqlite3.Connection,
+  *,
+  workflow_id: str,
+  session_id: str,
+  current_step_id: str,
+) -> None:
+  with connection:
+    connection.execute(
+      """
+      INSERT INTO feature_implement_workflows (
+        workflow_id, session_id, workflow_name, contract_version,
+        workflow_status, current_step_id, steps_json, artifacts_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      """,
+      (
+        workflow_id,
+        session_id,
+        "bill-feature-implement",
+        FEATURE_IMPLEMENT_WORKFLOW_CONTRACT_VERSION,
+        "running",
+        current_step_id,
+        json.dumps(_default_workflow_steps(current_step_id), sort_keys=True),
+        json.dumps({}, sort_keys=True),
       ),
     )
 
@@ -233,11 +376,239 @@ def save_finished(
       )
 
 
+def fetch_workflow(connection: sqlite3.Connection, workflow_id: str) -> sqlite3.Row | None:
+  return connection.execute(
+    "SELECT * FROM feature_implement_workflows WHERE workflow_id = ?",
+    (workflow_id,),
+  ).fetchone()
+
+
+def fetch_latest_workflow(connection: sqlite3.Connection) -> sqlite3.Row | None:
+  return connection.execute(
+    """
+    SELECT *
+    FROM feature_implement_workflows
+    ORDER BY updated_at DESC, rowid DESC
+    LIMIT 1
+    """
+  ).fetchone()
+
+
+def list_workflows(connection: sqlite3.Connection, limit: int = 20) -> list[sqlite3.Row]:
+  return list(connection.execute(
+    """
+    SELECT *
+    FROM feature_implement_workflows
+    ORDER BY updated_at DESC, rowid DESC
+    LIMIT ?
+    """,
+    (limit,),
+  ).fetchall())
+
+
+def save_workflow_state(
+  connection: sqlite3.Connection,
+  *,
+  workflow_id: str,
+  workflow_status: str,
+  current_step_id: str,
+  step_updates: list[dict] | None,
+  artifacts_patch: dict | None,
+  session_id: str,
+) -> bool:
+  row = fetch_workflow(connection, workflow_id)
+  if row is None:
+    return False
+
+  existing_steps = _decode_json_object(row["steps_json"] or "", default=[])
+  assert isinstance(existing_steps, list)
+  merged_steps = _merge_step_updates(existing_steps, step_updates)
+
+  existing_artifacts = _decode_json_object(row["artifacts_json"] or "", default={})
+  assert isinstance(existing_artifacts, dict)
+  merged_artifacts = dict(existing_artifacts)
+  if artifacts_patch:
+    merged_artifacts.update(artifacts_patch)
+
+  next_current_step_id = current_step_id or (row["current_step_id"] or "")
+  next_session_id = session_id or (row["session_id"] or "")
+  terminal = workflow_status in FEATURE_IMPLEMENT_WORKFLOW_TERMINAL_STATUSES
+
+  with connection:
+    connection.execute(
+      """
+      UPDATE feature_implement_workflows
+      SET session_id = ?,
+          workflow_status = ?,
+          current_step_id = ?,
+          steps_json = ?,
+          artifacts_json = ?,
+          updated_at = CURRENT_TIMESTAMP,
+          finished_at = CASE
+            WHEN ? THEN CURRENT_TIMESTAMP
+            ELSE NULL
+          END
+      WHERE workflow_id = ?
+      """,
+      (
+        next_session_id,
+        workflow_status,
+        next_current_step_id,
+        json.dumps(merged_steps, sort_keys=True),
+        json.dumps(merged_artifacts, sort_keys=True),
+        1 if terminal else 0,
+        workflow_id,
+      ),
+    )
+  return True
+
+
 def fetch_session(connection: sqlite3.Connection, session_id: str) -> sqlite3.Row | None:
   return connection.execute(
     "SELECT * FROM feature_implement_sessions WHERE session_id = ?",
     (session_id,),
   ).fetchone()
+
+
+def build_workflow_payload(
+  connection: sqlite3.Connection,
+  workflow_id: str,
+) -> dict[str, object]:
+  row = fetch_workflow(connection, workflow_id)
+  if row is None:
+    return {}
+
+  steps = _decode_json_object(row["steps_json"] or "", default=[])
+  artifacts = _decode_json_object(row["artifacts_json"] or "", default={})
+  assert isinstance(steps, list)
+  assert isinstance(artifacts, dict)
+
+  return {
+    "workflow_id": row["workflow_id"],
+    "session_id": row["session_id"] or "",
+    "workflow_name": row["workflow_name"] or "bill-feature-implement",
+    "contract_version": row["contract_version"] or FEATURE_IMPLEMENT_WORKFLOW_CONTRACT_VERSION,
+    "workflow_status": row["workflow_status"] or "pending",
+    "current_step_id": row["current_step_id"] or "",
+    "steps": steps,
+    "artifacts": artifacts,
+    "started_at": row["started_at"] or "",
+    "updated_at": row["updated_at"] or "",
+    "finished_at": row["finished_at"] or "",
+  }
+
+
+def build_workflow_summary_payload(row: sqlite3.Row) -> dict[str, object]:
+  return {
+    "workflow_id": row["workflow_id"],
+    "session_id": row["session_id"] or "",
+    "workflow_name": row["workflow_name"] or "bill-feature-implement",
+    "contract_version": row["contract_version"] or FEATURE_IMPLEMENT_WORKFLOW_CONTRACT_VERSION,
+    "workflow_status": row["workflow_status"] or "pending",
+    "current_step_id": row["current_step_id"] or "",
+    "started_at": row["started_at"] or "",
+    "updated_at": row["updated_at"] or "",
+    "finished_at": row["finished_at"] or "",
+  }
+
+
+_WORKFLOW_REQUIRED_ARTIFACTS_BY_STEP: dict[str, list[str]] = {
+  "assess": [],
+  "create_branch": ["assessment"],
+  "preplan": ["assessment", "branch"],
+  "plan": ["assessment", "preplan_digest"],
+  "implement": ["plan", "preplan_digest"],
+  "review": ["implementation_summary"],
+  "audit": ["implementation_summary", "review_result"],
+  "validate": ["audit_report"],
+  "write_history": ["implementation_summary", "validation_result"],
+  "commit_push": ["implementation_summary", "validation_result", "history_result"],
+  "pr_description": ["implementation_summary", "branch"],
+  "finish": ["pr_result"],
+}
+
+
+_WORKFLOW_RESUME_ACTIONS: dict[str, str] = {
+  "assess": "Reconstruct or confirm the Step 1 assessment, then reopen the workflow from create_branch.",
+  "create_branch": "Create or verify the feature branch, persist the branch artifact, then continue to preplan.",
+  "preplan": "Re-run the pre-planning phase using the assessment and branch artifacts, then persist preplan_digest.",
+  "plan": "Re-run the planning phase using assessment and preplan_digest, then persist the plan artifact.",
+  "implement": "Resume implementation from the persisted plan and preplan_digest, then refresh implementation_summary.",
+  "review": "Resume code review from the latest implementation_summary and persist review_result after each pass.",
+  "audit": "Resume the completeness audit from implementation_summary and review_result, then persist audit_report.",
+  "validate": "Resume final validation from the latest audit_report, then persist validation_result.",
+  "write_history": "Resume boundary history writing using implementation_summary and validation_result, then persist history_result.",
+  "commit_push": "Resume commit/push after verifying implementation_summary, validation_result, and history_result are current.",
+  "pr_description": "Resume PR creation using the branch and implementation_summary, then persist pr_result.",
+  "finish": "Close the workflow by marking finish completed and setting the final workflow_status.",
+}
+
+
+def build_workflow_resume_payload(
+  connection: sqlite3.Connection,
+  workflow_id: str,
+) -> dict[str, object]:
+  payload = build_workflow_payload(connection, workflow_id)
+  if not payload:
+    return {}
+
+  workflow_status = str(payload["workflow_status"])
+  current_step_id = str(payload["current_step_id"])
+  steps = payload["steps"]
+  artifacts = payload["artifacts"]
+  assert isinstance(steps, list)
+  assert isinstance(artifacts, dict)
+
+  steps_by_id = {
+    str(step.get("step_id", "")): step
+    for step in steps
+    if isinstance(step, dict) and step.get("step_id")
+  }
+  last_completed_step_id = ""
+  for step_id in FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS:
+    step = steps_by_id.get(step_id)
+    if step and step.get("status") == "completed":
+      last_completed_step_id = step_id
+
+  resume_step_id = current_step_id
+  current_step = steps_by_id.get(current_step_id, {})
+  if workflow_status == "completed":
+    resume_mode = "done"
+  elif workflow_status in FEATURE_IMPLEMENT_WORKFLOW_TERMINAL_STATUSES:
+    resume_mode = "recover"
+  else:
+    resume_mode = "resume"
+    if current_step.get("status") == "completed":
+      for step_id in FEATURE_IMPLEMENT_WORKFLOW_STEP_IDS:
+        step = steps_by_id.get(step_id)
+        if step and step.get("status") in {"running", "blocked", "pending"}:
+          resume_step_id = step_id
+          current_step = step
+          break
+
+  available_artifacts = sorted(str(key) for key in artifacts.keys())
+  required_artifacts = list(_WORKFLOW_REQUIRED_ARTIFACTS_BY_STEP.get(resume_step_id, []))
+  missing_artifacts = [key for key in required_artifacts if key not in artifacts]
+  can_resume = resume_mode != "done" and not missing_artifacts
+  if resume_mode == "done":
+    next_action = "Workflow already completed. Inspect pr_result or telemetry if you need a summary."
+  else:
+    next_action = _WORKFLOW_RESUME_ACTIONS.get(
+      resume_step_id,
+      "Inspect workflow state, refresh missing artifacts, and continue from the current step.",
+    )
+
+  payload.update({
+    "resume_mode": resume_mode,
+    "resume_step_id": resume_step_id,
+    "last_completed_step_id": last_completed_step_id,
+    "available_artifacts": available_artifacts,
+    "required_artifacts": required_artifacts,
+    "missing_artifacts": missing_artifacts,
+    "can_resume": can_resume,
+    "next_action": next_action,
+  })
+  return payload
 
 
 def build_started_payload(

@@ -15,6 +15,123 @@ Every subagent prompt is **self-contained**. Subagents do not have access to thi
 
 Every subagent **returns a single structured block** as the final text message, prefixed with `RESULT:` and containing valid JSON matching the declared contract, so the orchestrator can parse it deterministically. Narrative explanation (if any) goes above the `RESULT:` block; the orchestrator only consumes the JSON.
 
+## Workflow State Contract
+
+`bill-feature-implement` now owns a durable workflow-state layer in addition to
+its telemetry session.
+
+The orchestrator must maintain:
+
+- `session_id` — from `feature_implement_started`, used only for telemetry
+- `workflow_id` — from `feature_implement_workflow_open`, used for durable
+  workflow state
+- `child_steps` — local list of orchestrated child telemetry payloads
+
+### Required workflow tools
+
+- `feature_implement_workflow_open`
+- `feature_implement_workflow_update`
+- `feature_implement_workflow_get`
+
+### Canonical step ids
+
+Use these exact step ids when updating workflow state:
+
+1. `assess`
+2. `create_branch`
+3. `preplan`
+4. `plan`
+5. `implement`
+6. `review`
+7. `audit`
+8. `validate`
+9. `write_history`
+10. `commit_push`
+11. `pr_description`
+12. `finish`
+
+### Canonical artifacts
+
+Persist these named artifacts through `artifacts_patch`:
+
+- `assessment`
+- `branch`
+- `preplan_digest`
+- `plan`
+- `implementation_summary`
+- `review_result`
+- `audit_report`
+- `validation_result`
+- `history_result`
+- `pr_result`
+
+### Phase-to-artifact mapping
+
+At each phase boundary, persist the structured result the orchestrator already
+has in hand:
+
+- Step 1 → `assessment`
+- Step 1b → `branch`
+- Step 2 → `preplan_digest`
+- Step 3 → `plan`
+- Step 4 → `implementation_summary`
+- Step 5 → `review_result`
+- Step 6 → `audit_report`
+- Step 6b → `validation_result`
+- Step 7 → `history_result`
+- Step 9 → `pr_result`
+
+### Open sequence
+
+Immediately after Step 1 is confirmed:
+
+1. Call `feature_implement_started`.
+2. Save `session_id` even when the tool returns `status: skipped`.
+3. Call `feature_implement_workflow_open` with:
+   - `session_id`
+   - `current_step_id: "assess"`
+4. Save `workflow_id`.
+5. Initialize `child_steps = []`.
+
+### Update rules
+
+After every major phase boundary:
+
+- call `feature_implement_workflow_update`
+- set the parent-owned `workflow_status`
+- set the new `current_step_id`
+- pass only the changed steps in `step_updates`
+- merge the new structured artifact through `artifacts_patch`
+
+When a loop sends work backwards:
+
+- set the next active step explicitly
+- increment that step's `attempt_count`
+- keep the latest artifact for the phase that triggered the loop
+
+### Terminal-state rules
+
+When the workflow succeeds:
+
+- mark `finish` completed
+- set `workflow_status: "completed"`
+
+When the user abandons:
+
+- set `workflow_status: "abandoned"`
+- leave `current_step_id` on the step where the workflow stopped
+- persist a small final artifact patch such as `{"terminal_note": "..."}`
+  when useful
+
+When the workflow errors:
+
+- set `workflow_status: "failed"`
+- leave `current_step_id` on the failing step
+- persist a final artifact patch describing the failure when useful
+
+Workflow state is independent of telemetry. Do not skip workflow-state writes
+just because telemetry is disabled.
+
 ## Pre-planning subagent briefing
 
 Launch via the `Agent` tool with `subagent_type: "general-purpose"`.
@@ -339,6 +456,10 @@ All sizes: feature flag if required, code review (inline in orchestrator), quali
 - **PR-description subagent fails to create the PR** — report the error, offer to retry. If abandoned, call `feature_implement_finished` with `completion_status: "error"`.
 
 In all early-exit cases, close the telemetry session with the appropriate `completion_status` so the run is not orphaned.
+
+In those same early-exit cases, also close the workflow state with
+`feature_implement_workflow_update` so the durable workflow does not remain in
+`running`.
 
 ## Skills Invoked
 
