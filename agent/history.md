@@ -1,3 +1,12 @@
+## [2026-04-22] kotlin-runtime-port phase 1
+Areas: runtime-kotlin/, docs/migrations/SKILL-27-kotlin-runtime-port.md, agent/history.md
+- Added a standalone JVM-only `runtime-kotlin/` Gradle module with local wrapper scripts, JDK 17 toolchain setup, version-catalog dependency management, and a package scaffold for future CLI, MCP, DB, telemetry, workflow, scaffold, and install ports. reusable
+- Added shared Kotlin contract/error primitives plus initial smoke tests so later subsystem ports can reuse one local foundation instead of inventing per-area scaffolding. reusable
+- Wired module-local quality gates from day one: 2-space Kotlin formatting via `.editorconfig`, `spotless` for formatting, and `detekt` for static analysis, all validated through the wrapper-based Gradle path. reusable
+- Recorded the Phase 1 carryover in `docs/migrations/SKILL-27-kotlin-runtime-port.md`, keeping Python as the active runtime source of truth and pointing the next session at Phase 2 persistence work.
+Feature flag: N/A
+Acceptance criteria: 7/7 implemented
+
 ## [2026-04-21] feature-verify-shell-pilot
 Areas: skills/bill-feature-verify/, scripts/, tests/, README.md, docs/getting-started-for-teams.md
 - Split `bill-feature-verify` into a workflow shell in `SKILL.md` and an author-owned `content.md`, keeping workflow-state, continuation, stable artifact names, and telemetry ownership in the shell while moving phase-by-phase verify guidance into the sibling content file. reusable
