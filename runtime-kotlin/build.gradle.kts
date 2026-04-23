@@ -15,6 +15,7 @@ val buildLogicSpotlessCheck = gradle.includedBuild("build-logic").task(":convent
 
 dependencies {
   implementation(libs.sqlite.jdbc)
+  implementation(libs.kotlinx.serialization.json)
   testImplementation(libs.junit.jupiter)
   testImplementation(libs.kotlin.test)
 }

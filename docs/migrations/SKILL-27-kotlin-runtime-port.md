@@ -3,9 +3,9 @@
 ## Status
 
 - Issue: `SKILL-27`
-- Phase: `2 - Persistence core`
+- Phase: `3 - Review domain`
 - Runtime source of truth: Python
-- Kotlin ownership: build foundation, shared scaffolding, and persistence core
+- Kotlin ownership: build foundation, shared scaffolding, persistence core, and review-domain services
 - Last updated: `2026-04-23`
 
 ## Purpose
@@ -478,3 +478,113 @@ Checkpoint status:
   workflow rows
 - higher-level consumers of the persistence layer have not been ported yet, so
   Python remains the behavioral oracle above the row-contract layer
+
+## Next Session Start
+
+Start with `Phase 3 - Review domain`.
+
+The next session should:
+
+1. port the review-domain service layer above persistence from
+   `skill_bill/review.py`, `triage.py`, `learnings.py`, `stats.py`,
+   `config.py`, and `sync.py`
+2. preserve representative local contracts for review parsing/import, feedback
+   recording, learnings resolution/session caching, review/workflow stats, and
+   telemetry proxy/sync behavior
+3. add parity-oriented Kotlin tests for representative review-domain flows
+   before touching CLI or MCP surfaces
+4. update this migration note and the source-of-truth statement when the phase
+   exits
+
+Do not start CLI, MCP, workflow-runtime, scaffold, governed loader, or install
+porting before the review-domain services are in place.
+
+## Phase 3 Results
+
+Completed in this session:
+
+- ported the review import/parsing layer into `runtime-kotlin/`, including
+  review-run and review-session extraction, summary metadata parsing,
+  specialist-review normalization, bullet finding parsing, and table finding
+  parsing with normalized severity/confidence handling
+- ported triage parsing and feedback recording behavior, including structured
+  and bulk decision expansion, normalized outcome mapping, review-finished
+  telemetry state handling, and persistence of feedback events against the
+  Phase 2 database foundation
+- ported learnings resolution and session-caching behavior, including scope
+  validation, rejected-source validation, precedence ordering across
+  `skill`/`repo`/`global`, payload shaping, and cached session-learnings
+  reads/writes
+- ported representative local review and workflow stats aggregation plus
+  review-finished payload shaping so `runtime-kotlin/` now computes the same
+  local summary surfaces that later CLI and MCP layers depend on
+- ported telemetry config resolution, proxy capability probing, remote-stats
+  requests, and outbox sync behavior into Kotlin, then split the subsystem into
+  focused config, HTTP, remote-stats, and sync helpers that match the repo's
+  Kotlin quality gates
+- added parity-style Kotlin tests for review import, triage/feedback,
+  learnings/session caching, review stats payloads, workflow stats payloads,
+  remote telemetry stats, proxy capability defaults, and telemetry sync failure
+  handling
+
+Contracts now covered by Kotlin:
+
+- review import/parsing contract for required ids, summary fields, specialist
+  review parsing, and bullet/table finding extraction
+- triage decision normalization and feedback recording semantics
+- learnings scope/source validation, resolution ordering, payload shaping, and
+  session-learnings cache semantics
+- representative local review stats, workflow stats, and review-finished
+  telemetry payload shaping
+- telemetry config precedence, proxy capability defaults, remote stats request
+  shaping, and outbox sync result semantics
+
+Runtime source of truth after Phase 3:
+
+- Python remains the active source of truth for production CLI, MCP,
+  workflow-runtime orchestration, governed loader/scaffolder, and install
+  behavior
+- Kotlin now owns the local persistence and review-domain service layer in
+  `runtime-kotlin/`, including telemetry config/proxy/sync primitives that sit
+  below the CLI and MCP surfaces
+- Python remains the behavioral oracle for any user-facing contract that has
+  not yet been flipped explicitly, especially command-line shape, MCP payloads,
+  and long-running workflow orchestration semantics
+
+Validation run in this session:
+
+- `cd runtime-kotlin && ./gradlew test`
+- `cd runtime-kotlin && ./gradlew spotlessApply`
+- `cd runtime-kotlin && ./gradlew check detekt spotlessCheck`
+
+## Phase 3 Exit Result
+
+Checkpoint status:
+
+- the Kotlin runtime now owns the local review-domain service layer on top of
+  the Phase 2 persistence foundation
+- representative Kotlin parity tests cover review parsing/import, triage and
+  feedback, learnings resolution/session caching, local stats payloads, remote
+  telemetry stats, and outbox sync behavior
+- CLI, MCP, workflow-runtime, scaffold/loader, and install behavior are still
+  unported, so Python remains the source of truth for those externally visible
+  surfaces
+
+## Next Session Start
+
+Start with `Phase 4 - Surface integration`.
+
+The next session should:
+
+1. map the Kotlin review-domain services onto stable CLI entrypoints without
+   changing command names, argument shapes, or output contracts
+2. wire the same Kotlin service layer into the MCP tool surfaces while
+   preserving existing request/response field names and orchestrated child-step
+   semantics
+3. keep workflow-runtime, governed loader/scaffolder, and install behavior out
+   of scope unless a separate phase explicitly pulls them forward
+4. continue treating Python as the oracle for any user-visible surface that is
+   not yet covered by Kotlin parity evidence
+
+Do not widen Phase 4 into workflow-runtime or scaffolder migration work before
+the CLI and MCP surface contracts are stable.
