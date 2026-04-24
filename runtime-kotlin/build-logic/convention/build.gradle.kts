@@ -22,6 +22,7 @@ tasks.withType<KotlinCompile>().configureEach {
 
 dependencies {
   compileOnly(libs.kotlin.gradle.plugin)
+  compileOnly(libs.ksp.gradle.plugin)
   compileOnly(libs.spotless.gradle.plugin)
   compileOnly(libs.detekt.gradle.plugin)
 }
