@@ -8,6 +8,7 @@ import skillbill.learnings.LearningScope
 import skillbill.learnings.LearningStore
 import skillbill.learnings.LearningsRuntime
 import skillbill.learnings.learningPayload
+import skillbill.learnings.learningSessionJson
 
 @Inject
 class LearningService(private val context: RuntimeContext) {
@@ -30,7 +31,7 @@ class LearningService(private val context: RuntimeContext) {
       val (repoScopeKey, skillName, rows) = LearningsRuntime.resolveLearnings(openDb.connection, repo, skill)
       val payloadEntries = rows.map(::learningPayload)
       reviewSessionId?.takeIf(String::isNotBlank)?.let {
-        LearningsRuntime.saveSessionLearnings(openDb.connection, it, learningsSessionJson(skillName, payloadEntries))
+        LearningsRuntime.saveSessionLearnings(openDb.connection, it, learningSessionJson(skillName, payloadEntries))
       }
       return learningsResolvePayload(openDb.dbPath.toString(), repoScopeKey, skillName, reviewSessionId, payloadEntries)
     }
