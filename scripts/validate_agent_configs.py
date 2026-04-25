@@ -174,9 +174,7 @@ UNRESOLVED_PLACEHOLDER_PATTERN = re.compile(r"(?m)^\s*(?:[-*]\s*)?(?:TODO|FIXME)
 CANONICAL_SKILL_MD_LEGACY_MARKERS: tuple[str, ...] = ()
 
 CANONICAL_SKILL_MD_ENFORCEMENT_DISABLED = False
-CANONICAL_SKILL_MD_FORCE_SKIP_DIRECTORIES: tuple[str, ...] = (
-  "skills/bill-editorial-assignment-desk",
-)
+CANONICAL_SKILL_MD_FORCE_SKIP_DIRECTORIES: tuple[str, ...] = ()
 
 
 def validate_skill_md_shape(skill_md_path: Path, *, enforce: bool = True) -> None:
@@ -618,8 +616,8 @@ WORKFLOW_DRIVEN_SKILLS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...]
 )
 EDITORIAL_WORKFLOW_SKILLS: tuple[tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, ...]], ...] = (
   (
-    "skills/bill-gaming-editorial-desk",
-    ("SKILL.md",),
+    "skills/bill-editorial-assignment-desk",
+    ("SKILL.md", "content.md"),
     (
       "## Readian MCP Boundary",
       "## Stable Step Ids",
@@ -646,12 +644,19 @@ EDITORIAL_WORKFLOW_SKILLS: tuple[tuple[str, tuple[str, ...], tuple[str, ...], tu
       "`candidate_board`",
       "`selected_story_pack`",
       "readian_auth_status",
-      "readian_get_today_feed",
-      "readian_get_recommendations",
+      "readian_get_spotlight",
+      "readian_get_articles_for_topic_query",
       "readian_get_article",
       "readian_save_candidate",
       "readian_mark_story_status",
       "auth_required",
+      "@readian/mcp-client",
+      "npm install -g @readian/mcp-client",
+      "readian-mcp status",
+      "\"mcpServers\"",
+      "\"args\": [\"stdio\"]",
+      "which readian-mcp",
+      "Do not publish, tag, or release",
     ),
     (
       "candidate_ranking_contract_v1",
