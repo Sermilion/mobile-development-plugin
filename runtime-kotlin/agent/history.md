@@ -1,3 +1,12 @@
+## [2026-04-30] scaffold-payload-ports
+Areas: runtime-cli scaffold commands, runtime scaffold adapter, CLI golden fixtures
+- Ported payload-mode `new-skill`, `new`, `new-addon`, and `create-and-fill` CLI paths to the native scaffold runtime while leaving interactive prompt modes on the Python bridge.
+- Reusable pattern: keep bridge helpers present during staged retirement, but source-test ported command blocks and their native helper so payload paths cannot silently shell back to Python.
+- Locked `new-skill --dry-run --format json` with a golden fixture using dynamic session/path normalization, and split scaffold CLI tests out of the broad runtime test class.
+- Known limitation: editor-backed `create-and-fill` and broader inspection/authoring command ports remain deferred to later 3b subtasks.
+Feature flag: N/A
+Acceptance criteria: 6/6 implemented
+
 ## [2026-04-30] install-and-doctor-ports
 Areas: runtime-cli install commands, runtime-core install facade, runtime-cli doctor subject routing, CLI source-reference tests
 - Ported `install agent-path`, `install detect-agents`, and `install link-skill` from Python bridge calls to a public `InstallOperations` facade over internal install primitives. reusable
