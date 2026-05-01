@@ -1,3 +1,12 @@
+## [2026-05-01] adoption-docs-and-external-author-dry-run
+Areas: runtime-cli external-author tests, runtime-core scaffold manifest paths, docs adoption guides
+- Rewrote adoption docs around packaged Kotlin-only CLI/MCP behavior, fail-closed vs degraded boundaries, strict contract guarantees, and model-mediated review/planning limits.
+- Added a Kotlin CLI external-author dry run that scaffolds a temporary platform pack through `new --payload`, validates it, links a generated skill into a temp agent path, removes it, and validates cleanup. reusable
+- Fixed scaffold manifest writes to use pack-root-relative declared file paths for new platform packs, code-review-area edits, and quality-check overrides. reusable
+- Reusable guardrail: external-author validation should exercise CLI payload parsing plus manifest-loader resolution, not call the scaffold core directly.
+Feature flag: N/A
+Acceptance criteria: 5/5 implemented
+
 ## [2026-05-01] python-runtime-retirement
 Areas: skill_bill.launcher, runtime-core launcher contract, runtime-mcp launch path, runtime docs
 - Removed the TODO(3c) launcher surface entries for `python-fallback` and `mcp-python-fallback`; the contract now locks only packaged Kotlin CLI/MCP selection. reusable
