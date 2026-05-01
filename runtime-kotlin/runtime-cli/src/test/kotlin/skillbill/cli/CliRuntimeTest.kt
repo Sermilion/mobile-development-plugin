@@ -468,10 +468,15 @@ class CliRuntimeTest {
     val scaffoldSource = Files.readString(Path.of("src/main/kotlin/skillbill/cli/ScaffoldCliCommands.kt"))
     val systemSource = Files.readString(Path.of("src/main/kotlin/skillbill/cli/SystemCliCommands.kt"))
 
+    listOf(scaffoldSource, systemSource).forEach { source ->
+      assertFalse(source.contains("runPythonCli"), source)
+      assertFalse(source.contains("runPythonScaffoldCli"), source)
+      assertFalse(source.contains("pythonProcess"), source)
+    }
     listOf(
       commandBlock(scaffoldSource, "class InstallAgentPathCommand", "class InstallDetectAgentsCommand"),
       commandBlock(scaffoldSource, "class InstallDetectAgentsCommand", "class InstallLinkSkillCommand"),
-      commandBlock(scaffoldSource, "class InstallLinkSkillCommand", "internal fun runPythonCli"),
+      commandBlock(scaffoldSource, "class InstallLinkSkillCommand", "private fun runNativeScaffoldPayload"),
       commandBlock(systemSource, "class DoctorCliCommand", "private fun retiredSubjectResult"),
     ).forEach { commandSource ->
       assertFalse(commandSource.contains("runPythonCli"), commandSource)

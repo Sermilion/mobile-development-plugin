@@ -222,14 +222,9 @@ class RuntimeArchitectureTest {
   }
 
   @Test
-  fun `python bridge markers stay isolated to deferred cli bridge files`() {
-    val allowedBridgeFiles =
-      setOf(
-        "runtime-cli/src/main/kotlin/skillbill/cli/ScaffoldCliCommands.kt",
-        "runtime-cli/src/main/kotlin/skillbill/cli/SystemCliCommands.kt",
-      )
+  fun `python bridge markers are absent from runtime sources`() {
     assertNoBannedSourceReferences(
-      files = sourceFiles().filter { file -> file.relativePath !in allowedBridgeFiles },
+      files = sourceFiles(),
       bannedReferences =
       listOf(
         "runPythonCli",
@@ -250,15 +245,22 @@ class RuntimeArchitectureTest {
     val mcpFiles =
       sourceFiles()
         .filter { file -> file.relativePath.startsWith("runtime-mcp/src/main/kotlin/") }
+    val cliFiles =
+      sourceFiles()
+        .filter { file -> file.relativePath.startsWith("runtime-cli/src/main/kotlin/") }
 
     assertNoBannedSourceReferences(
       files = mcpFiles,
       bannedReferences = listOf("java.net.http", "java.sql"),
       description = "direct HTTP or SQL dependency",
     )
+    assertNoBannedSourceReferences(
+      files = cliFiles,
+      bannedReferences = listOf("java.net.http", "java.sql", "java.nio.file.Files", "Files."),
+      description = "direct filesystem, HTTP, or SQL dependency",
+    )
 
     // McpScaffoldRuntime keeps a temporary Files-based repo-root lookup for new_skill_scaffold.
-    // TODO(3b): promote the matching runtime-cli FS/HTTP/SQL ban after deleting pythonProcess().
     assertNoBannedSourceReferences(
       files =
       mcpFiles.filterNot { file ->

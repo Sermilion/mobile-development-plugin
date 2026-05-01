@@ -109,6 +109,9 @@ class CliScaffoldRuntimeTest {
         "private fun runPythonCreateAndFill",
       )
 
+    assertFalse(scaffoldSource.contains("runPythonCli"), scaffoldSource)
+    assertFalse(scaffoldSource.contains("runPythonScaffoldCli"), scaffoldSource)
+    assertFalse(scaffoldSource.contains("pythonProcess"), scaffoldSource)
     listOf(
       commandBlock(scaffoldSource, "class NewSkillCommand", "class NewCommand"),
       commandBlock(scaffoldSource, "class NewCommand", "class CreateAndFillCommand"),
@@ -125,9 +128,6 @@ class CliScaffoldRuntimeTest {
     assertFalse(nativeScaffoldPayloadSource.contains("runPythonCli"), nativeScaffoldPayloadSource)
     assertFalse(nativeScaffoldPayloadSource.contains("runPythonScaffoldCli"), nativeScaffoldPayloadSource)
     assertFalse(nativeScaffoldPayloadSource.contains("pythonProcess"), nativeScaffoldPayloadSource)
-    assertTrue(scaffoldSource.contains("internal fun runPythonCli"))
-    assertTrue(scaffoldSource.contains("internal fun runPythonScaffoldCli"))
-    assertTrue(scaffoldSource.contains("private fun pythonProcess"))
   }
 }
 

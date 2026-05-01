@@ -1,3 +1,12 @@
+## [2026-05-01] bridge-teardown-and-arch-ban
+Areas: runtime-cli bridge teardown, runtime architecture tests, runtime scaffold authoring helpers
+- Deleted the remaining Kotlin CLI Python bridge helpers after 3b_1/3b_2/3b_3 ported their callers; native payload reads now avoid `java.nio.file.Files` in runtime-cli main sources.
+- Promoted the deferred runtime-cli FS/HTTP/SQL architecture bans and removed the temporary Python bridge allowlist. reusable
+- Split `AuthoringOperations` helper groups into focused sibling files to satisfy the validation gate without Detekt suppressions. reusable
+- Python CLI/scaffold tests remain intentionally for 3c/fallback while `skill_bill/cli.py` and `skill_bill/scaffold` still exist.
+Feature flag: N/A
+Acceptance criteria: 5/5 implemented
+
 ## [2026-04-30] scaffold-payload-ports
 Areas: runtime-cli scaffold commands, runtime scaffold adapter, CLI golden fixtures
 - Ported payload-mode `new-skill`, `new`, `new-addon`, and `create-and-fill` CLI paths to the native scaffold runtime while leaving interactive prompt modes on the Python bridge.
