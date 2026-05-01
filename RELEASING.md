@@ -28,6 +28,8 @@ Removed files:
 - `skill_bill/cli.py`
 - `skill_bill/mcp_server.py`
 - `scripts/mcp_server_start.sh`
+- legacy Python runtime modules for review, learnings, workflow telemetry,
+  quality-check, PR description, and SQLite runtime support
 
 ## Versioning policy
 
