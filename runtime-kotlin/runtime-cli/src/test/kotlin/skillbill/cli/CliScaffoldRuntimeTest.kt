@@ -106,7 +106,7 @@ class CliScaffoldRuntimeTest {
       commandBlock(
         scaffoldSource,
         "private fun createAndFillResult",
-        "private fun runPythonCreateAndFill",
+        "private fun errorResult",
       )
 
     assertFalse(scaffoldSource.contains("runPythonCli"), scaffoldSource)

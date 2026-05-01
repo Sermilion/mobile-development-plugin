@@ -9,6 +9,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class RuntimeArchitectureTest {
+  private val readianMcpRuntime = "runtime-mcp/src/main/kotlin/skillbill/mcp/ReadianMcpRuntime.kt"
+  private val mcpScaffoldRuntime = "runtime-mcp/src/main/kotlin/skillbill/mcp/McpScaffoldRuntime.kt"
   private val runtimeRoot: Path =
     Path.of("").toAbsolutePath().normalize().let { workingDir ->
       if (workingDir.fileName.toString().startsWith("runtime-")) {
@@ -230,12 +232,16 @@ class RuntimeArchitectureTest {
         "runPythonCli",
         "runPythonScaffoldCli",
         "pythonProcess",
-        "ProcessBuilder",
         "\"python3\"",
         "skill_bill.cli",
         "skill_bill.mcp_server",
         "PYTHONPATH",
       ),
+      description = "deferred Python bridge marker",
+    )
+    assertNoBannedSourceReferences(
+      files = sourceFiles().filterNot { file -> file.relativePath == readianMcpRuntime },
+      bannedReferences = listOf("ProcessBuilder"),
       description = "deferred Python bridge marker",
     )
   }
@@ -264,12 +270,13 @@ class RuntimeArchitectureTest {
     assertNoBannedSourceReferences(
       files =
       mcpFiles.filterNot { file ->
-        file.relativePath == "runtime-mcp/src/main/kotlin/skillbill/mcp/McpScaffoldRuntime.kt"
+        file.relativePath in setOf(mcpScaffoldRuntime, readianMcpRuntime)
       },
       bannedReferences = listOf("java.nio.file.Files", "Files."),
       description = "direct filesystem dependency",
     )
     assertMcpScaffoldRuntimeOnlyUsesFilesForRepoRootDiscovery(mcpFiles)
+    assertReadianMcpRuntimeOnlyUsesFilesForCommandDiscovery(mcpFiles)
   }
 
   @Test
@@ -499,7 +506,7 @@ class RuntimeArchitectureTest {
   private fun assertMcpScaffoldRuntimeOnlyUsesFilesForRepoRootDiscovery(mcpFiles: List<SourceFile>) {
     val scaffoldFile =
       mcpFiles.first { file ->
-        file.relativePath == "runtime-mcp/src/main/kotlin/skillbill/mcp/McpScaffoldRuntime.kt"
+        file.relativePath == mcpScaffoldRuntime
       }
     val filesReferenceLines =
       scaffoldFile.source.lines()
@@ -511,6 +518,26 @@ class RuntimeArchitectureTest {
         "import java.nio.file.Files",
         "if (Files.isDirectory(current.resolve(\"skill_bill\")) && " +
           "Files.isDirectory(current.resolve(\"runtime-kotlin\"))) {",
+      ),
+      filesReferenceLines,
+    )
+  }
+
+  private fun assertReadianMcpRuntimeOnlyUsesFilesForCommandDiscovery(mcpFiles: List<SourceFile>) {
+    val readianFile =
+      mcpFiles.first { file ->
+        file.relativePath == readianMcpRuntime
+      }
+    val filesReferenceLines =
+      readianFile.source.lines()
+        .filter { line -> "java.nio.file.Files" in line || "Files." in line }
+        .map(String::trim)
+
+    assertEquals(
+      listOf(
+        "import java.nio.file.Files",
+        "if (!Files.isDirectory(versions)) return null",
+        "return Files.list(versions).use { paths ->",
       ),
       filesReferenceLines,
     )
