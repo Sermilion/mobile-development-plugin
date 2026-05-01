@@ -1,3 +1,12 @@
+## [2026-05-01] port-or-retire-python-backed-cli-closeout
+Areas: runtime-cli authoring tests, SKILL-32 3b specs, runtime validation gate
+- Closed the broad 3b parent spec after 3b_1 through 3b_4 landed by marking stale 3b/3b_2/3b_3 specs complete and adding parent close-out evidence.
+- Added missing Kotlin CLI coverage for `upgrade`, `render`, `edit --body-file`, and `fill` using isolated temp authoring repos so mutating commands never touch the real workspace. reusable
+- Reusable guardrail: broad close-out should audit every ported command for a concrete Kotlin CLI test, not only source-level Python-bridge removal.
+- Validation gate passed after extracting authoring test helpers to satisfy Detekt `LongMethod` without suppressions.
+Feature flag: N/A
+Acceptance criteria: 6/6 implemented
+
 ## [2026-05-01] bridge-teardown-and-arch-ban
 Areas: runtime-cli bridge teardown, runtime architecture tests, runtime scaffold authoring helpers
 - Deleted the remaining Kotlin CLI Python bridge helpers after 3b_1/3b_2/3b_3 ported their callers; native payload reads now avoid `java.nio.file.Files` in runtime-cli main sources.
