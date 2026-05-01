@@ -1,3 +1,11 @@
+## [2026-05-01] python-runtime-retirement
+Areas: skill_bill.launcher, runtime-core launcher contract, runtime-mcp launch path, runtime docs
+- Removed the TODO(3c) launcher surface entries for `python-fallback` and `mcp-python-fallback`; the contract now locks only packaged Kotlin CLI/MCP selection. reusable
+- The 3b bridge teardown is now complete at the outer launcher boundary: retired runtime env vars no longer select Python and the Python MCP bootstrap script is gone.
+- Future runtime rollback guidance should install the previous release instead of preserving Python runtime ownership.
+Feature flag: N/A
+Acceptance criteria: 11/11 implemented
+
 ## [2026-05-01] port-or-retire-python-backed-cli-closeout
 Areas: runtime-cli authoring tests, SKILL-32 3b specs, runtime validation gate
 - Closed the broad 3b parent spec after 3b_1 through 3b_4 landed by marking stale 3b/3b_2/3b_3 specs complete and adding parent close-out evidence.
