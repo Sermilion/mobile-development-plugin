@@ -14,6 +14,26 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = ROOT / "install.sh"
 SKILLS_DIR = ROOT / "skills"
 PLATFORM_PACKS_DIR = ROOT / "platform-packs"
+RUNTIME_CLI_BIN = (
+  ROOT
+  / "runtime-kotlin"
+  / "runtime-cli"
+  / "build"
+  / "install"
+  / "runtime-cli"
+  / "bin"
+  / "runtime-cli"
+)
+RUNTIME_MCP_BIN = (
+  ROOT
+  / "runtime-kotlin"
+  / "runtime-mcp"
+  / "build"
+  / "install"
+  / "runtime-mcp"
+  / "bin"
+  / "runtime-mcp"
+)
 
 
 def skill_names(package_name: str) -> set[str]:
@@ -58,8 +78,27 @@ PLATFORM_PACKAGES = platform_package_names()
 ALL_PLATFORM_SKILLS = set().union(*(skill_names(package) for package in PLATFORM_PACKAGES))
 
 
+def is_executable_file(path: Path) -> bool:
+  return path.is_file() and os.access(path, os.X_OK)
+
+
 class InstallScriptTest(unittest.TestCase):
   maxDiff = None
+
+  @classmethod
+  def setUpClass(cls) -> None:
+    if is_executable_file(RUNTIME_CLI_BIN) and is_executable_file(RUNTIME_MCP_BIN):
+      return
+
+    result = subprocess.run(
+      ["./gradlew", "-q", ":runtime-cli:installDist", ":runtime-mcp:installDist"],
+      cwd=ROOT / "runtime-kotlin",
+      capture_output=True,
+      text=True,
+      check=False,
+    )
+    if result.returncode != 0:
+      raise AssertionError(result.stdout + result.stderr)
 
   def test_accepts_multi_agent_selection_without_primary_prompt(self) -> None:
     with tempfile.TemporaryDirectory() as temp_home:

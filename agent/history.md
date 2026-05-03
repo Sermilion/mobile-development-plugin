@@ -1,3 +1,11 @@
+## [2026-05-03] installer-test-runtime-bootstrap
+Areas: tests/test_install_script.py, install.sh, runtime-kotlin/runtime-cli, runtime-kotlin/runtime-mcp
+- Fixed clean-CI installer tests after SKILL-36 moved `install.sh` to strict packaged Kotlin runtime bins: `test_install_script` still set `SKILL_BILL_SKIP_RUNTIME_DISTRIBUTION_BUILD=1`, but a fresh GitHub Actions checkout had no `runtime-cli`/`runtime-mcp` installDist outputs. reusable
+- The installer remains strict: skipped builds still require executable packaged CLI/MCP bins. The test suite now builds both distributions once in `InstallScriptTest.setUpClass` only when those bins are absent, so per-test installer runs continue exercising the skipped-build path deterministically.
+- Verified the fix by temporarily moving local installDist outputs away and running an installer test from that clean state; setup rebuilt the distributions and the test passed.
+Feature flag: N/A
+Acceptance criteria: CI installer unittest failure fixed
+
 ## [2026-05-03] feature-implement-telemetry-fallback
 Areas: skills/bill-feature-implement/content.md, skills/bill-feature-implement/reference.md, tests/test_feature_implement_routing_contract.py, Codex MCP registration
 - Added a feature-implement finalization guard after SKILL-36 exposed two flow failures: in-session Skill Bill MCP returned `Transport closed`, and review telemetry import was attempted with prose-only text missing `Review run ID`. reusable
