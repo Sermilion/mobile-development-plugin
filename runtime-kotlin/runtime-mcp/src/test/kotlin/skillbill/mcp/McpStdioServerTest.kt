@@ -34,7 +34,7 @@ class McpStdioServerTest {
   }
 
   @Test
-  fun `tools list exposes the Python-compatible inventory`() {
+  fun `tools list exposes the expected inventory`() {
     val response =
       decodeResponse(
         McpStdioServer.handleLine(
