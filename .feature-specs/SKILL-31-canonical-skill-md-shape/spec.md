@@ -7,7 +7,7 @@ Sources:
 - Branch: feat/SKILL-31-canonical-skill-md-shape
 
 ## Problem
-SKILL.md files in this repo have drifted from being scaffolds into being content dumps. Two workflow-runtime skills on this branch (bill-feature-implement, bill-feature-verify) duplicate step prose between SKILL.md and content.md, with the "source of truth" living in SKILL.md and content.md being the thinner stub. Other top-level skills under skills/* (bill-pr-description, bill-quality-check, bill-grill-plan, bill-boundary-decisions, etc.) have bespoke shapes embedding fallback templates, routing rules, and rule lists that should live in content.md.
+SKILL.md files in this repo have drifted from being scaffolds into being content dumps. Two workflow-runtime skills on this branch (bill-feature-implement, bill-feature-verify) duplicate step prose between SKILL.md and content.md, with the "source of truth" living in SKILL.md and content.md being the thinner stub. Other top-level skills under skills/* (bill-pr-description, bill-quality-check, bill-boundary-decisions, etc.) have bespoke shapes embedding fallback templates, routing rules, and rule lists that should live in content.md.
 
 The validators in scripts/validate_agent_configs.py actively pin many of these markers to SKILL.md (FEATURE_IMPLEMENT_SHELL_REQUIRED_MARKERS, validate_feature_implement_shell_contract, validate_feature_verify_shell_contract, WORKFLOW_DRIVEN_SKILLS marker lists). That's the root cause: the validator forced authors to put step prose, install gates, and embedded templates into SKILL.md.
 
@@ -28,7 +28,7 @@ Section order is strict: Descriptor → Execution → Ceremony. No other H2 allo
 - code-review: bill-kotlin-code-review, bill-kotlin-code-review-architecture, bill-kotlin-code-review-api-contracts, bill-kotlin-code-review-performance, bill-kotlin-code-review-persistence, bill-kotlin-code-review-platform-correctness, bill-kotlin-code-review-reliability, bill-kotlin-code-review-security, bill-kotlin-code-review-testing, bill-kmp-code-review, bill-kmp-code-review-ui, bill-kmp-code-review-ux-accessibility
 - quality-check: bill-kotlin-quality-check
 - workflow: bill-feature-implement, bill-feature-verify (bill-editorial-assignment-desk lives on unmerged SKILL-30 branch and is excluded from this scope)
-- advisor: bill-grill-plan, bill-boundary-decisions, bill-boundary-history, bill-pr-description, bill-create-skill, bill-skill-remove, bill-feature-guard, bill-feature-guard-cleanup, bill-unit-test-value-check, bill-code-review, bill-quality-check
+- advisor: bill-boundary-decisions, bill-boundary-history, bill-pr-description, bill-create-skill, bill-skill-remove, bill-feature-guard, bill-feature-guard-cleanup, bill-unit-test-value-check, bill-code-review, bill-quality-check
 
 Family is required on every SKILL.md. No path-based exceptions in the validator.
 

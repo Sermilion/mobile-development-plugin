@@ -7,7 +7,6 @@ private val horizontalSkillFamilies: Map<String, String> =
   mapOf(
     "bill-feature-implement" to "workflow",
     "bill-feature-verify" to "workflow",
-    "bill-grill-plan" to "advisor",
     "bill-boundary-decisions" to "advisor",
     "bill-boundary-history" to "advisor",
     "bill-pr-description" to "advisor",

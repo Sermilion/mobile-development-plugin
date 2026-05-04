@@ -80,7 +80,7 @@ Native subagent definitions are installed only for orchestrators that ship them.
 
 ## Reference skill catalog
 
-### Canonical Skills (13 skills)
+### Canonical Skills (12 skills)
 
 | Skill | Purpose |
 |-------|---------|
@@ -92,7 +92,6 @@ Native subagent definitions are installed only for orchestrators that ship them.
 | `/bill-feature-guard-cleanup` | Remove feature flags and legacy code after rollout |
 | `/bill-feature-implement` | End-to-end feature workflow from spec through review and validation |
 | `/bill-feature-verify` | Verify a PR against a task spec or design doc |
-| `/bill-grill-plan` | Stress-test a plan or design by walking the decision tree |
 | `/bill-pr-description` | Generate a PR title, description, and QA steps |
 | `/bill-quality-check` | Stable quality-check entry point that routes to the matching checker |
 | `/bill-skill-remove` | Remove an existing skill or platform skill set and clean up installs |

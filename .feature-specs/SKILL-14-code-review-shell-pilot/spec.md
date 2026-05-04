@@ -38,7 +38,7 @@ Skill-bill is already more infrastructure than content (4.9k LOC Python, 4 orche
 11. **Docs updated.** `README.md`, `AGENTS.md`, `docs/ROADMAP.md`, `docs/getting-started-for-teams.md` reflect the new model. Catalog counts stay accurate.
 12. **Tests cover both paths.** `tests/` gains coverage for: acceptance (valid platform pack loads), rejection (missing file, bad contract version, invalid manifest, missing required section) fails with a named error. Both paths are first-class.
 13. **Only `bill-code-review` is piloted.** `bill-quality-check`, `bill-feature-implement`, `bill-feature-verify` are NOT refactored in this PR. They remain working in current form; they will adopt the proven contract in follow-up PRs. Their existing references to platform skill names must still work.
-14. **Horizontal skills untouched.** `bill-grill-plan`, `bill-boundary-decisions`, `bill-boundary-history`, `bill-pr-description`, `bill-new-skill-all-agents`, `bill-feature-guard*`, `bill-unit-test-value-check` remain fully authored and unmodified.
+14. **Horizontal skills untouched.** `bill-boundary-decisions`, `bill-boundary-history`, `bill-pr-description`, `bill-new-skill-all-agents`, `bill-feature-guard*`, `bill-unit-test-value-check` remain fully authored and unmodified.
 
 ## Non-goals
 

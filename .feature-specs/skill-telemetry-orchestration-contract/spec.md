@@ -23,7 +23,7 @@ Sources: chat discussion about telemetry coverage gaps, standalone-vs-orchestrat
 - Cross-event correlation via a shared `parent_session_id` field. One user-initiated workflow must produce exactly one telemetry event; correlation by construction replaces correlation by foreign key.
 - Automatic orchestration detection. A child skill must never infer "am I orchestrated?" from ambient state — the parent passes the flag explicitly.
 - A session registry, active-session lookup, or any global in-memory coupling between parent and child runs.
-- New telemetry for skills that are conversational (`bill-grill-plan`), content-generating with privacy risk (`bill-boundary-decisions`, `bill-boundary-history`), or subsumed by existing events (`bill-unit-test-value-check`, `bill-feature-guard`, `bill-feature-guard-cleanup`, `bill-new-skill-all-agents`).
+- New telemetry for skills that are content-generating with privacy risk (`bill-boundary-decisions`, `bill-boundary-history`) or subsumed by existing events (`bill-unit-test-value-check`, `bill-feature-guard`, `bill-feature-guard-cleanup`, `bill-new-skill-all-agents`).
 - Changes to the existing `off` / `anonymous` / `full` telemetry level model. Field-level redaction inside `child_steps` follows the same level rules already defined.
 
 ---
